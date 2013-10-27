@@ -26,6 +26,7 @@ library
     Text.XML.Expat.Mapping
   build-depends:       base >=4.6 && <4.7
                      , bytestring
+                     , text
                      , hexpat
                      , mtl
                      , errors
