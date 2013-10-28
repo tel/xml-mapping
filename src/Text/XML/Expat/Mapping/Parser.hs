@@ -12,7 +12,7 @@ import Text.XML.Expat.Tree
 
 data One
 data Many
-
+  
 data ParseError = ParseError { trying :: First String, errors :: [String] }
                 deriving ( Eq, Ord, Show )
 
@@ -27,10 +27,10 @@ anError e = ParseError mempty [e]
 type Path = [NName ByteString]
 
 newtype Parser (n :: *) a = P {
-  unP :: [Node (NName ByteString) ByteString]
+  unP :: [NNode ByteString]
          -> Path
          -> Either ParseError
-                   (a, [Node (NName ByteString) ByteString])
+                   (a, [NNode ByteString])
   } deriving ( Functor )
 
 -- | Very secret function---interconvert between the Parser modalities
@@ -75,13 +75,13 @@ instance MonadPlus (Parser n) where
 underPath :: NName ByteString -> Parser n a -> Parser n a
 underPath name (P p) = P $ \ns pth -> p ns (name:pth)
 
-getNs :: Parser Many [Node (NName ByteString) ByteString]
+getNs :: Parser Many [NNode ByteString]
 getNs = P go where go ns _ = Right (ns, ns)
 
 getP :: Parser n Path
 getP = P go where go ns p = Right (p, ns)
 
-putNs :: [Node (NName ByteString) ByteString] -> Parser Many ()
+putNs :: [NNode ByteString] -> Parser Many ()
 putNs ns = P go where go _ _ = Right ((), ns)
 
 addE :: String -> Parser n a
@@ -106,15 +106,15 @@ infixl 4 <?>
 (<?>) :: Parser n a -> String -> Parser n a
 p <?> e = p <* addE e
 
-try1 :: (Node (NName ByteString) ByteString -> Either ParseError a) -> Parser One a
+try1 :: (NNode ByteString -> Either ParseError a) -> Parser One a
 try1 f = P go where go []     _ = Left (anError "Elements exhausted")
                     go (x:xs) _ = fmap (,xs) (f x)
 
-parse1 :: Parser One a ->  Node (NName ByteString) ByteString -> Path -> Either ParseError a
+parse1 :: Parser One a ->  NNode ByteString -> Path -> Either ParseError a
 parse1 p e pth = fmap fst (unP p [e] pth)
 
 parseM :: Parser Many a
-         -> [Node (NName ByteString) ByteString]
+         -> [NNode ByteString]
          -> Path
-         -> Either ParseError (a, [Node (NName ByteString) ByteString])
+         -> Either ParseError (a, [NNode ByteString])
 parseM = unP         

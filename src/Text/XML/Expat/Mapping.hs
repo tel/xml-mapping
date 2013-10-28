@@ -12,11 +12,11 @@ import Text.XML.Expat.Tree
 import Text.XML.Expat.Mapping.Parser
 import Data.ByteString (ByteString)
 
-basicParse :: ByteString -> Node (NName ByteString) ByteString
+basicParse :: ByteString -> NNode ByteString
 basicParse = toNamespaced . toQualified . fromJust . hush . parse' defaultParseOptions
   where fromJust (Just x) = x
 
-ex1 :: Node (NName ByteString) ByteString
+ex1 :: NNode ByteString
 ex1 = basicParse "<foo> bar <baz /> quux </foo>"
 
 class FromXML n a | a -> n where
@@ -30,6 +30,7 @@ node nname parser = underPath nname (try1 go) where
 node' :: ByteString -> Parser Many a -> Parser One a
 node' n = node (NName Nothing n)
 
+-- | Represents data 'Mixed' with text.
 data Mixed a = Mixed { unMixed :: [Either ByteString a] }
              deriving ( Eq, Show, Ord )
 
@@ -42,7 +43,7 @@ instance FromXML One a => FromXML Many (Mixed a) where
         Left pe -> failPE pe
         Right a -> return (Right a)
 
-instance FromXML One (Node (NName ByteString) ByteString) where
+instance FromXML One (NNode ByteString) where
   fromXML = try1 Right
 
 -- Sequence (nestable)
@@ -51,6 +52,7 @@ instance FromXML One (Node (NName ByteString) ByteString) where
 
 -- Mixed
 
+-- | Defaults out a 'Maybe' parser
 def :: a -> Parser n (Maybe a) -> Parser n a
 def val p = do
   mayA <- p
@@ -58,9 +60,17 @@ def val p = do
     Nothing -> return val
     Just a  -> return a
 
+-- | Matches only when the 'Eq'ual to a sentinel value.
 fixed :: (Show a, Eq a) => a -> Parser n a -> Parser n a
 fixed val p = do
   a <- p
   if a == val
     then return a
     else fail ("Did not match fixed value: " ++ show val)
+
+fixed' :: (Eq a) => a -> Parser n a -> Parser n a
+fixed' val p = do
+  a <- p
+  if a == val
+    then return a
+    else fail "Did not some fixed value"
