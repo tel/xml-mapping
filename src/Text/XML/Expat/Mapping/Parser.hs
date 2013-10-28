@@ -1,18 +1,18 @@
+{-# LANGUAGE DeriveFunctor  #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TupleSections  #-}
 
 module Text.XML.Expat.Mapping.Parser where
 
-import Control.Applicative
-import Control.Monad
-import Data.Monoid
-import Data.ByteString (ByteString)
-import Text.XML.Expat.Tree
+import           Control.Applicative
+import           Control.Monad
+import           Data.ByteString     (ByteString)
+import           Data.Monoid
+import           Text.XML.Expat.Tree
 
 data One
 data Many
-  
+
 data ParseError = ParseError { trying :: First String, errors :: [String] }
                 deriving ( Eq, Ord, Show )
 
@@ -43,7 +43,7 @@ instance Applicative (Parser n) where
   -- This (<*>) instance is slightly better than `ap` in that it'll
   -- try the second branch even if the first fails and then combine
   -- the errors. This gives us slightly more comprehensive reporting.
-  
+
   P pf <*> P px = P $ \ns p -> case pf ns p of
     Left e -> case px ns p of
       Left e' -> Left (e <> e')
@@ -66,7 +66,7 @@ instance Monad (Parser n) where
     ma ns p >>= \(a, ns') ->
       unP (f a) ns' p
   fail s = P go where go _ _ = Left (anError s)
-  
+
 instance MonadPlus (Parser n) where
   mzero = empty
   mplus = (<|>)
@@ -98,7 +98,7 @@ infixl 4 <?>
 
 -- How does this interact with the Path? How does it work at all? How
 -- does Parsec use it?
--- 
+--
 -- I could implement everything atop a base error throwing function
 -- like 'ParseError -> Parser n a' which decorates the 'ParseError'
 -- with the 'Path'.
@@ -117,4 +117,4 @@ parseM :: Parser Many a
          -> [NNode ByteString]
          -> Path
          -> Either ParseError (a, [NNode ByteString])
-parseM = unP         
+parseM = unP

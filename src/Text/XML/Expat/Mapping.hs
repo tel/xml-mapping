@@ -1,16 +1,16 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE TypeSynonymInstances   #-}
 
 module Text.XML.Expat.Mapping where
 
-import Control.Error
-import Text.XML.Expat.Tree
-import Text.XML.Expat.Mapping.Parser
-import Data.ByteString (ByteString)
+import           Control.Error
+import           Data.ByteString               (ByteString)
+import           Text.XML.Expat.Mapping.Parser
+import           Text.XML.Expat.Tree
 
 basicParse :: ByteString -> NNode ByteString
 basicParse = toNamespaced . toQualified . fromJust . hush . parse' defaultParseOptions
