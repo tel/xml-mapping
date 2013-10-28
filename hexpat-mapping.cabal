@@ -58,10 +58,10 @@ library
     Text.XML.Expat.Mapping
   build-depends:       base >=4.6 && <4.7
                      , bytestring
-                     , text
+                     , errors
                      , hexpat
                      , mtl
-                     , errors
+                     , text
 
 test-suite tests
   type:                exitcode-stdio-1.0
@@ -71,8 +71,11 @@ test-suite tests
   default-language:    Haskell2010
 
   other-modules:
+    Test.Text.XML.Expat.Mapping
   build-depends:       base >=4.6 && <4.7
+                     , hexpat-mapping
+
+                     , QuickCheck
                      , tasty
                      , tasty-hunit
                      , tasty-quickcheck
-                     , QuickCheck
