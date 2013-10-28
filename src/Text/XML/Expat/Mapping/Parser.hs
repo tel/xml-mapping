@@ -12,7 +12,7 @@ import Text.XML.Expat.Tree
 
 data One
 data Many
-  
+
 data ParseError = ParseError { trying :: First String, errors :: [String] }
                 deriving ( Eq, Ord, Show )
 
@@ -27,9 +27,13 @@ anError e = ParseError mempty [e]
 type Path = [NName ByteString]
 
 newtype Parser (n :: *) a = P {
-  unP :: [Node (NName ByteString) ByteString] -> Path -> Either ParseError (a, [Node (NName ByteString) ByteString])
+  unP :: [Node (NName ByteString) ByteString]
+         -> Path
+         -> Either ParseError
+                   (a, [Node (NName ByteString) ByteString])
   } deriving ( Functor )
 
+-- | Very secret function---interconvert between the Parser modalities
 forgetP :: Parser n a -> Parser n' a
 forgetP = P . unP
 
@@ -58,14 +62,18 @@ instance Alternative (Parser n) where
 
 instance Monad (Parser n) where
   return = pure
-  P ma >>= f = P $ \ns p -> do
-    ma ns p >>= \(a, ns') -> do
+  P ma >>= f = P $ \ns p ->
+    ma ns p >>= \(a, ns') ->
       unP (f a) ns' p
   fail s = P go where go _ _ = Left (anError s)
   
 instance MonadPlus (Parser n) where
   mzero = empty
   mplus = (<|>)
+
+-- | Add a setment to the 'Path'
+underPath :: NName ByteString -> Parser n a -> Parser n a
+underPath name (P p) = P $ \ns pth -> p ns (name:pth)
 
 getNs :: Parser Many [Node (NName ByteString) ByteString]
 getNs = P go where go ns _ = Right (ns, ns)
@@ -82,10 +90,18 @@ addE e = P go where go _ _ = Left (anError e)
 failPE :: ParseError -> Parser n a
 failPE pe = P $ \_ _ -> Left pe
 
-setT :: String -> Parser n a
-setT t = P go where go _ _ = Left (ParseError (First (Just t)) mempty)
+-- declare that we're "trying" something
+declareT :: String -> Parser n a
+declareT t = P go where go _ _ = Left (ParseError (First (Just t)) mempty)
 
 infixl 4 <?>
+
+-- How does this interact with the Path? How does it work at all? How
+-- does Parsec use it?
+-- 
+-- I could implement everything atop a base error throwing function
+-- like 'ParseError -> Parser n a' which decorates the 'ParseError'
+-- with the 'Path'.
 
 (<?>) :: Parser n a -> String -> Parser n a
 p <?> e = p <* addE e
@@ -96,9 +112,6 @@ try1 f = P go where go []     _ = Left (anError "Elements exhausted")
 
 parse1 :: Parser One a ->  Node (NName ByteString) ByteString -> Path -> Either ParseError a
 parse1 p e pth = fmap fst (unP p [e] pth)
-
-underPath :: NName ByteString -> Parser n a -> Parser n a
-underPath name (P p) = P $ \ns pth -> p ns (name:pth)
 
 parseM :: Parser Many a
          -> [Node (NName ByteString) ByteString]
