@@ -56,6 +56,7 @@ library
 
   exposed-modules:     
     Text.XML.Expat.Mapping
+    Text.XML.Expat.Mapping.Parser
   build-depends:       base >=4.6 && <4.7
                      , bytestring
                      , errors
