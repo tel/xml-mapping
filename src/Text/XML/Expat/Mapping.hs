@@ -8,10 +8,13 @@
 --
 -- It's easy to try to parse a "type" when you want an element, though
 -- XML does not fix the name of an type's element.
+--
+-- node should be xsElement
+--
+-- A One-style parser should be able to pick up the attributes in any
+-- order (or at least in a specific order)
 
-module Text.XML.Expat.Mapping (
-  FromXML (..), node, node', Mixed (..), def, fixed, fixed'
-  ) where
+module Text.XML.Expat.Mapping where
 
 import           Control.Applicative
 import           Control.Error
@@ -48,6 +51,12 @@ node nname parser = try1 go where
 node' :: ByteString -> Parser a -> Parser a
 node' n = node (NName Nothing n)
 
+getA :: Parser (Maybe (Attributes (NName ByteString) ByteString))
+getA = withNs go where
+  go []            = (Nothing, [])
+  go es@(Text{}:_) = (Nothing, es)
+  go es@(e     :_) = (Just (eAttributes e), es)
+
 -- | Represents data 'Mixed' with text.
 data Mixed a = Mixed { unMixed :: [Either ByteString a] }
              deriving ( Eq, Show, Ord )
@@ -66,7 +75,6 @@ xsSequence :: Parser a -> Parser [a]
 xsSequence parser = withNs tryEm
   where
     tryEm = tryEm' []
-    tryEm' :: FromXML a => [a] -> [NNode ByteString] -> ([a], [NNode ByteString])
     tryEm' as []     = (reverse as, [])
     tryEm' as (n:ns) = case parse1 parser n of
       Left _  -> (reverse as, n:ns)
@@ -77,7 +85,7 @@ instance FromXML a => FromXML (NonEmpty a) where
 
 xsNonEmpty :: Parser a -> Parser (NonEmpty a)
 xsNonEmpty parser = do
-    as <- parser
+    as <- xsSequence parser
     case nonEmpty as of
       Nothing -> addE "Expecting at least one match, found none"
       Just ne -> return ne
