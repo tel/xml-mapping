@@ -27,10 +27,10 @@ import           Data.Text.Encoding                     (decodeUtf8')
 import           Text.XML.Expat.Mapping.Internal.Parser
 import           Text.XML.Expat.Tree
 
-decode :: Parser a -> ByteString -> Maybe a
+decode :: Parser a -> ByteString -> Either ParseError a
 decode parser bs =
-  hush (parse' defaultParseOptions bs) >>=
-    hush . parse1 parser . toNamespaced . toQualified
+  fmapL (const (anError "malformed XML")) (parse' defaultParseOptions bs) >>=
+    parse1 parser . toNamespaced . toQualified
 
 class FromXML a where
   fromXML :: Parser a
