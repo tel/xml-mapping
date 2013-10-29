@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                hexpat-mapping
-version:             0.0.9
+version:             0.0.10
 
 synopsis:            Aeson for XML. Easy recursive mapping between Haskell and XML.
 description:         

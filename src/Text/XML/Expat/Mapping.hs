@@ -27,6 +27,11 @@ import           Data.Text.Encoding                     (decodeUtf8')
 import           Text.XML.Expat.Mapping.Internal.Parser
 import           Text.XML.Expat.Tree
 
+decode :: Parser a -> ByteString -> Maybe a
+decode parser bs =
+  hush (parse' defaultParseOptions bs) >>=
+    hush . parse1 parser . toNamespaced . toQualified
+
 class FromXML a where
   fromXML :: Parser a
 
