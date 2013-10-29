@@ -60,18 +60,24 @@ instance FromXML a => FromXML (Mixed a) where
       Right a -> return (Right a)
 
 instance FromXML a => FromXML [a] where
-  fromXML = withNs tryEm
-    where
-      tryEm = tryEm' []
-      tryEm' :: FromXML a => [a] -> [NNode ByteString] -> ([a], [NNode ByteString])
-      tryEm' as []     = (reverse as, [])
-      tryEm' as (n:ns) = case parse1 fromXML n of
-        Left _  -> (reverse as, n:ns)
-        Right a -> tryEm' (a:as) ns
+  fromXML = xsSequence fromXML
+
+xsSequence :: Parser a -> Parser [a]
+xsSequence parser = withNs tryEm
+  where
+    tryEm = tryEm' []
+    tryEm' :: FromXML a => [a] -> [NNode ByteString] -> ([a], [NNode ByteString])
+    tryEm' as []     = (reverse as, [])
+    tryEm' as (n:ns) = case parse1 parser n of
+      Left _  -> (reverse as, n:ns)
+      Right a -> tryEm' (a:as) ns
 
 instance FromXML a => FromXML (NonEmpty a) where
-  fromXML = do
-    as <- fromXML
+  fromXML = xsNonEmpty fromXML
+
+xsNonEmpty :: Parser a -> Parser (NonEmpty a)
+xsNonEmpty parser = do
+    as <- parser
     case nonEmpty as of
       Nothing -> addE "Expecting at least one match, found none"
       Just ne -> return ne
