@@ -1,13 +1,14 @@
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
 
 module Text.XML.Expat.Mapping.Internal.Parser where
 
-import           Control.Applicative
-import           Control.Error
+import           Control.Error                    hiding (err)
 import           Control.Lens
 import           Control.Monad.Error
 import           Control.Monad.Identity
@@ -20,24 +21,14 @@ import           Data.Hashable
 import qualified Data.HashMap.Strict              as Map
 import           Data.Monoid
 import           Data.Text                        (Text)
-import           Data.Text.Encoding               (decodeUtf8')
+import qualified Data.Text                        as T
+import           Data.Text.Encoding               (decodeUtf8', encodeUtf8)
+import           GHC.Generics
 import           Text.XML.Expat.Tree
 
-newtype Namespace = Namespace { unNamespace :: Maybe ByteString }
-                  deriving ( Show, Eq, Ord, Hashable )
-
-type Path = [(Namespace, ByteString)]
-type AtMap = Map.HashMap (Namespace, ByteString) ByteString
-
-type instance Index XMLCxt = ByteString
-type instance IxValue XMLCxt = ByteString
-
-newtype XMLCxt =
-  XMLCxt { namespaces :: Map.HashMap ByteString ByteString }
-  deriving ( Eq, Show, At, Monoid )
-
-instance Applicative f => Ixed f XMLCxt where
-  ix = ixAt
+data Namespace = Free | Namespace Text
+               deriving ( Show, Eq, Ord, Generic )
+instance Hashable Namespace
 
 newtype ParseError = ParseError [String]
                    deriving ( Eq, Show, Ord, Monoid )
@@ -53,8 +44,20 @@ fmapE f (ErrorT mit) = ErrorT $ fmap go mit where
   go (Left e)  = Left (f e)
   go (Right a) = Right a
 
+err :: (e -> c) -> (a -> c) -> Err e a -> c
+err f s (ErrorT (Identity it)) = case it of
+  Left e  -> f e
+  Right a -> s a
+
+data LevelState =
+  LS { _path  :: [(Namespace, Text)]
+     , _atmap :: Map.HashMap Namespace (Map.HashMap ByteString ByteString)
+     , _ctx   :: Map.HashMap Text Text
+     }
+makeLenses ''LevelState
+
 newtype Parser a = P {
-  unP :: ReaderT (Path, AtMap, XMLCxt) (
+  unP :: ReaderT LevelState (
      ErrorT ParseError (State [NNode ByteString])
      ) a
   }
@@ -62,10 +65,14 @@ newtype Parser a = P {
 class FromXMLAttribute a where
   fromXMLAttribute :: ByteString -> Err String a
 
+instance FromXMLAttribute ByteString where
+  fromXMLAttribute = return
+
 instance FromXMLAttribute Text where
   fromXMLAttribute =
     ErrorT . return . fmapL (const "Could not decode UTF-8") . decodeUtf8'
 
+-- | @xs:boolean@-style booleans
 instance FromXMLAttribute Bool where
   fromXMLAttribute t = case t of
     "true"  -> return True
@@ -91,7 +98,33 @@ instance FromXMLAttribute Double where
       I i -> return (fromIntegral i)
       D d -> return d
 
--- attr :: Maybe ByteString ->
+instance FromXMLAttribute a => FromXMLAttribute (Maybe a) where
+  fromXMLAttribute = return . err (const Nothing) Just . fromXMLAttribute
+
+-- | Space separated list---assumes a UTF-8 encoding
+instance FromXMLAttribute a => FromXMLAttribute [Maybe a] where
+  fromXMLAttribute = mapM (fromXMLAttribute . encodeUtf8) . T.words <=< fromXMLAttribute
+
+attr :: FromXMLAttribute a => Namespace -> ByteString -> Parser a
+attr ns n = P $ do
+  mayBs <- preview (atmap . ix ns . ix n)
+  case mayBs of
+    Nothing -> fail $ "No attribute " ++ show (ns, n)
+    Just bs -> err fail return $ fromXMLAttribute bs
+
+attr' :: FromXMLAttribute a => ByteString -> Parser a
+attr' = attr Free
+
+-- runParser :: Parser a -> Namespace -> ByteString -> UNode ByteString -> Either ParseError a
+-- runParser _      _  _ Text{} = fail "Expecting element, saw text"
+-- runParser (P go) ns n
+--   (Element { eName = name
+--            , eAttributes = attrs
+--            , eChildren = chils
+--            }) = P $ do
+--     ctx <- view _1
+--     case ns of
+--       Free ->
 
 -- data ParseError = ParseError { trying :: First String, errors :: [String] }
 --                 deriving ( Eq, Ord, Show )

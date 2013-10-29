@@ -52,8 +52,8 @@ library
   default-language:    Haskell2010
 
   exposed-modules:     
-    Text.XML.Expat.Mapping
-    Text.XML.Expat.Mapping.Parser
+    -- Text.XML.Expat.Mapping
+    -- Text.XML.Expat.Mapping.Parser
     Text.XML.Expat.Mapping.Internal.Parser
   build-depends:       base >=4.6 && <4.7
                      , attoparsec
