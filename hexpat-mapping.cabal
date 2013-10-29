@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                hexpat-mapping
-version:             0.0.1
+version:             0.0.4
 
 synopsis:            Aeson for XML. Easy recursive mapping between Haskell and XML.
 description:         
@@ -57,11 +57,13 @@ library
   exposed-modules:     
     Text.XML.Expat.Mapping
     Text.XML.Expat.Mapping.Parser
+    Text.XML.Expat.Mapping.Internal.Parser
   build-depends:       base >=4.6 && <4.7
                      , bytestring
                      , errors
                      , hexpat
                      , mtl
+                     , semigroups
                      , text
 
 test-suite tests
@@ -77,6 +79,9 @@ test-suite tests
                      , hexpat-mapping
 
                      , QuickCheck
+                     , bytestring
+                     , errors
+                     , hexpat
                      , tasty
                      , tasty-hunit
                      , tasty-quickcheck

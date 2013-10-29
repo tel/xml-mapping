@@ -1,59 +1,96 @@
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE OverloadedStrings      #-}
-{-# LANGUAGE TypeSynonymInstances   #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 
-module Text.XML.Expat.Mapping where
+-- Deficiencies
+--
+-- It's easy to try to parse a "type" when you want an element, though
+-- XML does not fix the name of an type's element.
 
+module Text.XML.Expat.Mapping (
+  FromXML (..), node, node', Mixed (..), def, fixed, fixed'
+  ) where
+
+import           Control.Applicative
 import           Control.Error
-import           Data.ByteString               (ByteString)
-import           Text.XML.Expat.Mapping.Parser
+import           Data.ByteString                        (ByteString)
+import           Data.Foldable                          (foldMap)
+import           Data.List.NonEmpty                     (NonEmpty (..),
+                                                         nonEmpty)
+import           Data.Text                              (Text)
+import           Data.Text.Encoding                     (decodeUtf8')
+import           Text.XML.Expat.Mapping.Internal.Parser
 import           Text.XML.Expat.Tree
 
-basicParse :: ByteString -> NNode ByteString
-basicParse = toNamespaced . toQualified . fromJust . hush . parse' defaultParseOptions
-  where fromJust (Just x) = x
+class FromXML a where
+  fromXML :: Parser a
 
-ex1 :: NNode ByteString
-ex1 = basicParse "<foo> bar <baz /> quux </foo>"
+-- | Consumes any number of Text nodes and concatenates them with
+-- spaces.
+instance FromXML Text where
+  fromXML = do
+    es <- getNs
+    justZ (foldMap go es) <|> fail "Saw an Element; expecting only Text."
+    where
+      go Element{} = Nothing
+      go (Text t)  = hush (decodeUtf8' t)
 
-class FromXML n a | a -> n where
-  fromXML :: Parser n a
-
-node :: NName ByteString -> Parser Many a -> Parser One a
-node nname parser = underPath nname (try1 go) where
+node :: NName ByteString -> Parser a -> Parser a
+node nname parser = try1 go where
   go Text{} = Left (anError "Found text when expecting an element")
-  go e      = fmap fst (parseM parser (eChildren e) [])
+  go e      =
+    if eName e == nname
+    then fst <$> parseM parser (eChildren e)
+    else Left (anError $ "Expecting element named: " ++ show nname ++ "; saw " ++ show (eName e))
 
-node' :: ByteString -> Parser Many a -> Parser One a
+node' :: ByteString -> Parser a -> Parser a
 node' n = node (NName Nothing n)
 
 -- | Represents data 'Mixed' with text.
 data Mixed a = Mixed { unMixed :: [Either ByteString a] }
              deriving ( Eq, Show, Ord )
 
-instance FromXML One a => FromXML Many (Mixed a) where
+instance FromXML a => FromXML (Mixed a) where
   fromXML = getNs >>= fmap Mixed . mapM go where
     go (Text t)    = return (Left t)
-    go e@Element{} = do
-      p <- getP
-      case parse1 fromXML e p of
-        Left pe -> failPE pe
-        Right a -> return (Right a)
+    go e@Element{} = case parse1 fromXML e of
+      Left pe -> failPE pe
+      Right a -> return (Right a)
 
-instance FromXML One (NNode ByteString) where
+instance FromXML a => FromXML [a] where
+  fromXML = withNs tryEm
+    where
+      tryEm = tryEm' []
+      tryEm' :: FromXML a => [a] -> [NNode ByteString] -> ([a], [NNode ByteString])
+      tryEm' as []     = (reverse as, [])
+      tryEm' as (n:ns) = case parse1 fromXML n of
+        Left _  -> (reverse as, n:ns)
+        Right a -> tryEm' (a:as) ns
+
+instance FromXML a => FromXML (NonEmpty a) where
+  fromXML = do
+    as <- fromXML
+    case nonEmpty as of
+      Nothing -> addE "Expecting at least one match, found none"
+      Just ne -> return ne
+
+instance FromXML a => FromXML (Maybe a) where
+  fromXML = maybe1 fromXML
+
+instance FromXML (NNode ByteString) where
   fromXML = try1 Right
 
 -- Sequence (nestable)
 -- Choice   (nestable)
+--    <xs:choice minOccurs="0" maxOccurs="unbounded"> in mixed content... ugh
 -- All
 
 -- Mixed
 
 -- | Defaults out a 'Maybe' parser
-def :: a -> Parser n (Maybe a) -> Parser n a
+def :: a -> Parser (Maybe a) -> Parser a
 def val p = do
   mayA <- p
   case mayA of
@@ -61,14 +98,14 @@ def val p = do
     Just a  -> return a
 
 -- | Matches only when the 'Eq'ual to a sentinel value.
-fixed :: (Show a, Eq a) => a -> Parser n a -> Parser n a
+fixed :: (Show a, Eq a) => a -> Parser a -> Parser a
 fixed val p = do
   a <- p
   if a == val
     then return a
     else fail ("Did not match fixed value: " ++ show val)
 
-fixed' :: (Eq a) => a -> Parser n a -> Parser n a
+fixed' :: (Eq a) => a -> Parser a -> Parser a
 fixed' val p = do
   a <- p
   if a == val

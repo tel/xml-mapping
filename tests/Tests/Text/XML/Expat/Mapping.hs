@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Text.XML.Expat.Mapping (
+module Tests.Text.XML.Expat.Mapping (
   main, tests
   ) where
 
@@ -23,6 +23,6 @@ tests :: TestTree
 tests =
   testGroup "Text.XML.Expat.Mapping"
   [ testCase "Basic test 1" (eChildren (treeOf "<foo />") @?= [])
-  , testCase "Basic test 2" (eChildren (treeOf "<foo>Hi</foo>") @?= [Text "Hi"])
+  , testCase "Basic test 2" (eChildren (treeOf "<foo>Hi</foo>") @?= [Text "hi"])
   ]
 
