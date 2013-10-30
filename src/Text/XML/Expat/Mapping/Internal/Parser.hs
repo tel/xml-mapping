@@ -11,41 +11,25 @@
 module Text.XML.Expat.Mapping.Internal.Parser where
 
 import           Control.Applicative
-import           Control.Error                    hiding (err)
+import           Control.Error                              hiding (err)
 import           Control.Lens
 import           Control.Monad.Error
 import           Control.Monad.Identity
 import           Control.Monad.Reader
 import           Control.Monad.State
-import qualified Data.Attoparsec.ByteString.Char8 as A8
+import qualified Data.Attoparsec.ByteString.Char8           as A8
 import           Data.Attoparsec.Number
-import           Data.ByteString                  (ByteString)
-import           Data.Hashable
-import qualified Data.HashMap.Strict              as Map
-import qualified Data.List.NonEmpty               as NEL
+import           Data.ByteString                            (ByteString)
+import qualified Data.HashMap.Strict                        as Map
 import           Data.Monoid
-import           Data.Text                        (Text)
-import qualified Data.Text                        as T
-import           Data.Text.Encoding               (decodeUtf8', encodeUtf8)
-import           GHC.Generics                     (Generic)
+import           Data.Text                                  (Text)
+import qualified Data.Text                                  as T
+import           Data.Text.Encoding                         (decodeUtf8',
+                                                             encodeUtf8)
 import           Text.XML.Expat.Tree
 
--- | This is a very simple initial parse of the @hexpat@ tree. We
--- don't gather 'QName's and 'NName's because that requires extra tree
--- traversals and our parser will be collecting that information
--- anyway. Tags are collected as 'Text' because I assume that they can
--- be split around @':'@, but the main text is left as 'ByteString' to
--- allow for bizarre things in the CDATA.
-type Tag = Node Text ByteString
-
--- | Namespaces on tags. 'Free' implies no namespace (thus \"free\" to
--- take whatever definition the current context might
--- give). 'Namespace' allows injection of a particular fully qualified
--- namespace, not an abbreviation tag as those are never meaningfully
--- canonical.
-data Namespace = Free | Namespace Text
-               deriving ( Show, Eq, Ord, Generic )
-instance Hashable Namespace
+import           Text.XML.Expat.Mapping.Internal.Namespaces
+import           Text.XML.Expat.Mapping.Types
 
 -- | Nothing at all special right now--just collects errors. This
 -- would eventually be very useful if it could collect more
@@ -82,24 +66,34 @@ err f s (ErrorT (Identity it)) = case it of
 -- \"level\" of the tree. It includes the current location, attributes
 -- (metadata) in scope, and a set of currently in-scope namespaces.
 data LevelState =
-  LS { _path       :: NEL.NonEmpty (Namespace, Text)
-     , _atmap      :: Map.HashMap Namespace (Map.HashMap Text ByteString)
-     , _namespaces :: Map.HashMap Text Text
-     }
+  LevelState { _namespace  :: Namespace
+             , _elemName   :: Text
+             , _attributes :: Map.HashMap Namespace (Map.HashMap Text ByteString)
+             , _namespaces :: NSMap
+             }
 makeLenses ''LevelState
+
+-- | As we traverse the XML tree we build a stack of 'LevelState's
+-- representing the attribute and element context that we're
+-- descending through. This allows for fairly targeted parser error
+-- messages.
+data LevelSet = Step { _levelState :: LevelState }
+              | Root { _levelState :: LevelState }
+makeLenses ''LevelSet
+makePrisms ''LevelSet
 
 -- | The core parser type. Currently this is implemented as a stack of
 -- 'Monad's, but should be CPS transformed eventually. This could also
 -- be turned into a transformer itself, but it'd be much nicer to
 -- avoid that if possible.
 newtype Parser a = P {
-  unP :: ReaderT LevelState (
+  unP :: ReaderT LevelSet (
      ErrorT ParseError (State [Tag])
      ) a
   } deriving ( Functor, Applicative, Alternative )
 
 -- | *Internal.* Execute a 'Parser' in all its gory detail.
-runP :: Parser a -> LevelState -> [Tag] -> (Either ParseError a, [Tag])
+runP :: Parser a -> LevelSet -> [Tag] -> (Either ParseError a, [Tag])
 runP (P inner) level st = runState (runErrorT (runReaderT inner level)) st
 
 -- | *Internal.* Execute a 'Parser' in the context of another
@@ -169,7 +163,7 @@ xsMaybe = xsOptional
 -- context.
 attr :: FromSimpleXMLType a => Namespace -> Text -> Parser a
 attr ns n = P $ do
-  mayBs <- preview (atmap . ix ns . ix n)
+  mayBs <- preview (levelState . attributes . ix ns . ix n)
   case mayBs of
     Nothing -> fail $ "No attribute " ++ show (ns, n)
     Just bs -> err fail return $ fromSimpleXMLType bs
@@ -177,29 +171,14 @@ attr ns n = P $ do
 attr' :: FromSimpleXMLType a => Text -> Parser a
 attr' = attr Free
 
--- | Pull a name apart into its prefix and its body. Technically this
--- should ensure that any 'Namespace' is an @NCName@, but right now it
--- just pull off any chunk before the first colon.
---
--- TODO: Make this smarter.
---
--- @
--- >>> prefix "foo"
--- (Free, "foo")
--- >>> prefix "foo:bar"
--- (Namespace "foo", "bar")
--- @
---
-prefix :: Text -> (Namespace, Text)
-prefix t = case T.split (==':') t of
-  []     -> (Free       , T.empty)
-  [n]    -> (Free       , n)
-  (n:ns) -> (Namespace n, T.concat ns)
-
 -- | Check to see whether a particular name matches the current
 -- context.
+
 thisElement :: Namespace -> Text -> Parser Bool
-thisElement ns name = P $ (== (ns, name)) <$> view (path . to NEL.head)
+thisElement ns name = P $ do
+  one <- view $ levelState . namespace . to (== ns)
+  two <- view $ levelState . elemName  . to (== name)
+  return (one && two)
 
 -- | *Internal.* Concatenates a list of 'Tag's into a single
 -- 'ByteString'.
@@ -229,26 +208,74 @@ xsSimple = P $ do
   where
     finalize a = put [] >> return a
 
--- | Descend into a particular node running a parser.
---
--- When we load into an element we capture the information in the
--- start node into the 'LevelState' in several ways. First, we take
--- the tag name itself and store it in the path. Second, we update the
--- namespace context using any @xmlns@ XML attributes. Thirdly, we
--- update the current attribute context to include all the attributes
--- which remain.
+-- | *Internal.* When we load into an element we capture the
+-- information in the start node into the 'LevelState' in several
+-- ways. First, we take the tag name itself and store it in the
+-- path. Second, we update the namespace context using any @xmlns@ XML
+-- attributes. Thirdly, we update the current attribute context to
+-- include all the attributes which remain.
 
--- load :: Parser a -> UNode ByteString -> Parser a
--- load _      _  _ Text{} = fail "Expecting element, saw text"
--- load (P go) ns n
---   (Element { eName = name
+-- updateLevelState :: Tag -> LevelState -> LevelState
+-- updateLevelState Text{} ls =  ls
+-- updateLevelState
+--   (Element { eName       = name
 --            , eAttributes = attrs
---            , eChildren = chils
---            }) = P $ do
---     -- ctx <- view ctx
---     undefined
---     -- case ns of
---     --   Free ->
+--            })
+--   (LevelState { _path       = path0
+--               , _namespaces = ns0
+--               }) =
+--     let ns1    = updateNS attrs ns0
+--         path1  = NEL.cons (getNName ns1 name) path0
+--         atmap1 = mkAtMap attrs ns1
+--     in  LevelState { _path       = path1
+--                    , _namespaces = ns1
+--                    , _atmap      = atmap1
+--                    }
+--   where
+--     getNName :: Map.HashMap Text Text
+--               -> Text -> (Namespace, Text)
+--     getNName nsMap n = case prefix n of
+--       Left freeN -> (Free, freeN)
+--       Right (tag, nsN) -> (Namespace $ undefined tag nsMap, nsN)
+--     updateNS :: [(Text, ByteString)]
+--                 -> Map.HashMap Text Text -> Map.HashMap Text Text
+--     updateNS = undefined
+--     mkAtMap :: [(Text, ByteString)]
+--                -> Map.HashMap Text Text
+--                -> Map.HashMap Namespace (Map.HashMap Text ByteString)
+--     mkAtMap = undefined
+
+
+-- | Descend into a particular element running a parser.
+--
+-- The inner parser must fully consume all of the child elements in
+-- order to succeed.
+
+-- load :: Parser a -> Tag -> Parser a
+-- load _       Text{} = P $ fail "Expecting element, saw text"
+-- load parser (Element { eName = name
+--                      , eAttributes = attrs
+--                      , eChildren = chils
+--                      })
+--   = P $ do path0       <- view path
+--            namespaces0 <- view namespaces
+--            atmap0      <- view atmap
+--            let path1  = NEL.cons (prefix name) path0
+--            let level1 = level0 & path %~
+--                                & namespaces %~ updateNS attrs
+--                                & atmap .~ mkAtMap attrs
+--            case runP parser level1 chils of
+--              (Left e,   _)        -> throwError e
+--              (Right a, [])        -> return a
+--              (_      , leftovers) -> fail ("Did not consume all children: " ++ show leftovers)
+--            where
+--              updateNS :: [(Text, ByteString)] -> Map.HashMap Text Text -> Map.HashMap Text Text
+--              updateNS = undefined
+--              mkAtMap :: [(Text, ByteString)] -> Map.HashMap Namespace (Map.HashMap Text ByteString)
+--              mkAtMap = undefined
+--                --         fromListWith go . map prepare where
+--                -- prepare (key, value) = let (ns, name) = prefix key in
+
 
 -- data ParseError = ParseError { trying :: First String, errors :: [String] }
 --                 deriving ( Eq, Ord, Show )
