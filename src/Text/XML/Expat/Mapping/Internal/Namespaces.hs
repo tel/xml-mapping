@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TupleSections              #-}
 
@@ -7,8 +8,11 @@ module Text.XML.Expat.Mapping.Internal.Namespaces where
 
 import           Control.Applicative
 import           Control.Lens
+import           Data.ByteString     (ByteString)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as Map
+import           Data.List
+import           Data.Monoid
 import           Data.String
 import           Data.Text           (Text)
 import qualified Data.Text           as T
@@ -19,7 +23,7 @@ import           GHC.Generics        (Generic)
 -- give). 'Namespace' allows injection of a particular fully qualified
 -- namespace, not an abbreviation tag as those are never meaningfully
 -- canonical.
-data Namespace = Free | Namespace Text
+data Namespace = Free | Namespace ByteString
                deriving ( Show, Generic )
 instance Hashable Namespace
 
@@ -94,8 +98,38 @@ data NSMap =
           -- which are maddeningly element-specific in their
           -- behavior).
         , _nsMap     :: Map.HashMap Prefix Namespace
-        }
+        } deriving Show
 makeLenses ''NSMap
+
+-- | 'mappend' combines new 'NSMap' information with the \"rightmost\"
+-- 'NSMap' winning. This combination is not guaranteed to be a true
+-- 'Monoid' except under observation of 'resolve'. Namespace
+-- undeclaration is performed by forcing a particular 'Prefix' to map
+-- to 'Free'. These \"tombstone\" values may or may not be removed
+-- from the resulting map.
+instance Monoid NSMap where
+  mempty = NSMap Free mempty
+  mappend (NSMap _ map1) (NSMap def map2) =
+    NSMap def $ Map.unionWith (\_ v2 -> v2) map1 map2
+
+-- | Convert an attribute set to a fresh 'NSMap' representing the
+-- *new* information garnered from this particular attribute set.
+--
+-- This is slightly looser than the actual XML spec demands---it
+-- merges multiple declarations of an @xmlns@ attribute \"to the
+-- right\".
+fromAttrs :: [(Text, ByteString)] -> NSMap
+fromAttrs = foldl' build mempty where
+  build nsmap@(NSMap def hmap) (attr, val) =
+    case prefix attr of
+      Left name | name /= "xmlns" -> nsmap
+                | otherwise -> NSMap (Namespace val) hmap
+      Right (xmlns, pf)
+        | xmlns /= "xmlns" -> nsmap -- what?
+        | otherwise ->
+          NSMap def $ Map.insert (Prefix $ getTagName pf)
+                                 (Namespace val)
+                                 hmap
 
 -- | Whenever we encounter either an @xmlns=""@ or (as of XML
 -- Namespaces 1.1) @xmlns:tag=""@ we \"undeclare\" that namespace,
