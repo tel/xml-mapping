@@ -2,21 +2,21 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TupleSections              #-}
 
 module Text.XML.Expat.Mapping.Internal.Namespaces where
 
 import           Control.Applicative
 import           Control.Lens
-import           Data.ByteString     (ByteString)
+import           Data.ByteString       (ByteString)
+import qualified Data.ByteString.Char8 as S8
 import           Data.Hashable
-import qualified Data.HashMap.Strict as Map
+import qualified Data.HashMap.Strict   as Map
 import           Data.List
 import           Data.Monoid
 import           Data.String
-import           Data.Text           (Text)
-import qualified Data.Text           as T
-import           GHC.Generics        (Generic)
+import           Data.Text             (Text)
+import qualified Data.Text             as T
+import           GHC.Generics          (Generic)
 
 -- | Namespaces on tags. 'Free' implies no namespace (thus \"free\" to
 -- take whatever definition the current context might
@@ -68,7 +68,30 @@ newtype Tagname = Tagname { getTagName :: Text }
 -- | A 'NamespaceName' just refers to the product of a full
 -- 'Namespace' (XML "namespace name\") and a 'Tagname' (XML \"local
 -- name\").
-type NamespaceName = (Namespace, Tagname)
+newtype NamespaceName = NamespaceName (Namespace, Tagname)
+                      deriving ( Eq, Hashable )
+
+-- | Clark notation: @{namespace}name@ with 'Free' being @{}@.
+instance Show NamespaceName where
+  show (NamespaceName (Free, Tagname tag)) = "{}" ++ T.unpack tag
+  show (NamespaceName (Namespace ns, Tagname tag)) =
+    "{" ++ S8.unpack ns ++ "}" ++ T.unpack tag
+
+(-:) :: Namespace -> NamespaceName -> NamespaceName
+(-:) = inNS
+
+-- | Set the 'Namespace' of a particular 'NamespaceName'.
+inNS :: Namespace -> NamespaceName -> NamespaceName
+inNS ns (NamespaceName (_, t)) = NamespaceName (ns, t)
+
+-- | This can only be used to fix local part of a
+-- 'NamespaceName'. It's a runtime error to use "fromString" to create
+-- a 'NamespaceName' that includes a colon.
+instance IsString NamespaceName where
+  fromString s = case prefix (fromString s) of
+    Left tn -> NamespaceName (Free, tn)
+    Right _ ->
+      error $ "Cannot interpret " ++ show s ++ " as an XML local name"
 
 -- | Pull a, presumably *qualified*, name apart into its prefix and
 -- its body. Technically this should ensure that any 'Namespace' is an
@@ -153,8 +176,9 @@ undeclareNS (Just pf) nsmap = nsmap & nsMap . at pf .~ Nothing
 -- local part (which is of course the same as the unprefixed name
 -- itself).
 realizeNS :: NSMap -> Either Tagname (Prefix, Tagname) -> Maybe NamespaceName
-realizeNS nsmap (Left tagname)   = Just (nsmap ^. defaultNS, tagname)
-realizeNS nsmap (Right (pf, tn)) = (, tn) <$> preview (nsMap . ix pf) nsmap
+realizeNS nsmap (Left tagname)   = Just $ NamespaceName (nsmap ^. defaultNS, tagname)
+realizeNS nsmap (Right (pf, tn)) =
+  (\x -> NamespaceName (x, tn)) <$> preview (nsMap . ix pf) nsmap
 
 -- | Resolves a 'Text' fragment within a 'Namespace' context by
 -- treating it as a qualified name and then trying to resolving the

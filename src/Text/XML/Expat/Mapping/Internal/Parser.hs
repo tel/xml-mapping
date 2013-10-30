@@ -68,7 +68,7 @@ err f s (ErrorT (Identity it)) = case it of
 data LevelState =
   LevelState { _namespace  :: Namespace
              , _elemName   :: Text
-             , _attributes :: Map.HashMap Namespace (Map.HashMap Text ByteString)
+             , _attributes :: Map.HashMap NamespaceName ByteString
              , _namespaces :: NSMap
              }
 makeLenses ''LevelState
@@ -161,15 +161,12 @@ xsMaybe = xsOptional
 
 -- | Parse the value of an XML attribute out of the current parsing
 -- context.
-attr :: FromSimpleXMLType a => Namespace -> Text -> Parser a
-attr ns n = P $ do
-  mayBs <- preview (levelState . attributes . ix ns . ix n)
+attr :: FromSimpleXMLType a => NamespaceName -> Parser a
+attr nsn = P $ do
+  mayBs <- preview (levelState . attributes . ix nsn)
   case mayBs of
-    Nothing -> fail $ "No attribute " ++ show (ns, n)
+    Nothing -> fail $ "No attribute " ++ show nsn
     Just bs -> err fail return $ fromSimpleXMLType bs
-
-attr' :: FromSimpleXMLType a => Text -> Parser a
-attr' = attr Free
 
 -- | Check to see whether a particular name matches the current
 -- context.
