@@ -5,7 +5,6 @@
 
 module Text.XML.Expat.Mapping.Internal.Namespaces where
 
-import           Control.Applicative
 import           Control.Lens
 import           Data.ByteString       (ByteString)
 import qualified Data.ByteString.Char8 as S8
@@ -48,7 +47,7 @@ instance Eq Namespace where
 -- directly to attribute names; the interpretation of unprefixed
 -- attributes is determined by the element on which they appear.
 
--- | Empty namespaces (@""@) are interpreted as 'Free'.
+-- | Empty namespaces like @\"\"@ are interpreted as 'Free'.
 instance IsString Namespace where
   fromString [] = Free
   fromString s  = Namespace (fromString s)
@@ -66,7 +65,7 @@ newtype Tagname = Tagname { getTagName :: Text }
                 deriving ( Show, Eq, Ord, Hashable, IsString )
 
 -- | A 'NamespaceName' just refers to the product of a full
--- 'Namespace' (XML "namespace name\") and a 'Tagname' (XML \"local
+-- 'Namespace' (XML \"namespace name\") and a 'Tagname' (XML \"local
 -- name\").
 newtype NamespaceName = NamespaceName (Namespace, Tagname)
                       deriving ( Eq, Hashable )
@@ -93,19 +92,18 @@ instance IsString NamespaceName where
     Right _ ->
       error $ "Cannot interpret " ++ show s ++ " as an XML local name"
 
--- | Pull a, presumably *qualified*, name apart into its prefix and
+-- | Pull a, presumably /qualified/, name apart into its prefix and
 -- its body. Technically this should ensure that any 'Namespace' is an
 -- @NCName@, but right now it just pull off any chunk before the first
 -- colon.
 --
 -- TODO: Make this smarter.
 --
--- @
 -- >>> prefix "foo"
 -- (Free, "foo")
+--
 -- >>> prefix "foo:bar"
 -- (Namespace "foo", "bar")
--- @
 --
 prefix :: Text -> Either Tagname (Prefix, Tagname)
 prefix t = case T.split (==':') t of
@@ -154,8 +152,8 @@ fromAttrs = foldl' build mempty where
                                  (Namespace val)
                                  hmap
 
--- | Whenever we encounter either an @xmlns=""@ or (as of XML
--- Namespaces 1.1) @xmlns:tag=""@ we \"undeclare\" that namespace,
+-- | Whenever we encounter either an @xmlns=\"\"@ or (as of XML
+-- Namespaces 1.1) @xmlns:tag=\"\"@ we \"undeclare\" that namespace,
 -- i.e. allow it to be resolved upward. 'Free' undeclares the default
 -- namespace while 'Namespace' undeclares a particular one.
 --
@@ -175,14 +173,16 @@ undeclareNS (Just pf) nsmap = nsmap & nsMap . at pf .~ Nothing
 -- attribute name always has no value. In all cases, the local name is
 -- local part (which is of course the same as the unprefixed name
 -- itself).
-realizeNS :: NSMap -> Either Tagname (Prefix, Tagname) -> Maybe NamespaceName
-realizeNS nsmap (Left tagname)   = Just $ NamespaceName (nsmap ^. defaultNS, tagname)
+realizeNS :: NSMap -> Either Tagname (Prefix, Tagname) -> Either [Prefix] NamespaceName
+realizeNS nsmap (Left tagname)   = Right $ NamespaceName (nsmap ^. defaultNS, tagname)
 realizeNS nsmap (Right (pf, tn)) =
-  (\x -> NamespaceName (x, tn)) <$> preview (nsMap . ix pf) nsmap
+  case preview (nsMap . ix pf) nsmap of
+    Nothing -> Left [pf]
+    Just x  -> Right $ NamespaceName (x, tn)
 
 -- | Resolves a 'Text' fragment within a 'Namespace' context by
 -- treating it as a qualified name and then trying to resolving the
 -- namespace prefix in the 'NSMap'. Returns 'Nothing' if the qualified
 -- name has an unknown prefix.
-resolve :: NSMap -> Text -> Maybe NamespaceName
+resolve :: NSMap -> Text -> Either [Prefix] NamespaceName
 resolve nsmap = realizeNS nsmap . prefix
