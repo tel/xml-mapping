@@ -173,8 +173,8 @@ xsDefault val p = P $ do
     Just a  -> return a
 
 -- | Matches only when the 'Eq'ual to a sentinel value.
-fixed :: (Show a, Eq a) => a -> Parser a -> Parser a
-fixed val p = P $ do
+xsFixed :: (Show a, Eq a) => a -> Parser a -> Parser a
+xsFixed val p = P $ do
   a <- unP p
   if a == val
     then return a
