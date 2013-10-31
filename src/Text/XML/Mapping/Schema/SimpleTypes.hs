@@ -34,6 +34,10 @@ module Text.XML.Mapping.Schema.SimpleTypes (
 
   -- * XML Schema Simple Data Types
 
+  -- ** Date types
+
+  XSPolarity (..), XSDuration (..),
+
   -- ** Number specializations
   XSNonPositiveInteger (..), XSNonNegativeInteger (..),
   XSPositiveInteger (..),    XSNegativeInteger (..),
@@ -42,7 +46,6 @@ module Text.XML.Mapping.Schema.SimpleTypes (
 
   XSShort (..), XSUnsignedShort (..),
   XSByte  (..), XSUnsignedByte  (..),
-
 
   -- ** Binary types
   XSBase64Binary (..), XSHexBinary (..)
@@ -165,7 +168,7 @@ instance FromSimple Int8 where
       else return (fromIntegral i)
 
 
-{- ========= XSD Types ========= -}
+{- ========= Basic XSD Simple Types ========= -}
 
 newtype XSShort = XSShort { getShort :: Int16 }
                 deriving ( Eq, Bounded, Enum, Ord, Integral, Num, Real, Show, FromSimple )
@@ -254,6 +257,54 @@ instance FromSimple XSHexBinary where
         | otherwise       ->
           fail ("Hexadecimal decoding failure, leftovers are: " ++ show leftover)
 
+{- ========= XSD Date Types ========= -}
+
+data XSPolarity = XSNegative | XSPositive
+                deriving ( Show, Eq, Ord )
+
+data XSDuration =
+  XSDuration { polarity    :: XSPolarity
+             , xsDurYear   :: Integer
+             , xsDurMonth  :: Int
+             , xsDurDay    :: Int
+             , xsDurHour   :: Int
+             , xsDurMinute :: Int
+             , xsDurSecond :: Double
+             }
+  deriving ( Show, Eq, Ord )
+
+instance FromSimple XSDuration where
+  -- Ugh..
+  parseSimple =
+    mkDuration
+    <$> A.option XSPositive (     (A8.char '-' *> pure XSNegative)
+                              <|> (A8.char '+' *> pure XSPositive) )
+    <*  A8.char8 'P'
+    <*> A.option 0 (A8.decimal <* A8.char 'Y')
+    <*> A.option 0 (A8.decimal <* A8.char 'M')
+    <*> A.option 0 (A8.decimal <* A8.char 'D')
+    <*> A.option Nothing (
+      A8.char8 'T' *> ( tupJ <$> A.option 0 (A8.decimal <* A8.char 'H')
+                             <*> A.option 0 (A8.decimal <* A8.char 'M')
+                             <*> A.option 0 (check =<< A8.double <* A8.char 'S') )
+      )
+    where
+      check :: Double -> A.Parser Double
+      check d
+        | d < 0 =
+          fail "Expecting non-negative floating point number, saw negative floating point"
+        | otherwise = return d
+      tupJ :: a -> b -> c -> Maybe (a, b, c)
+      tupJ a b c = Just (a, b, c)
+      mkDuration
+        :: XSPolarity
+           -> Integer -> Int -> Int
+           -> Maybe (Int, Int, Double)
+           -> XSDuration
+      mkDuration p y m d Nothing           = XSDuration p y m d 0 0  0
+      mkDuration p y m d (Just (h, mn, s)) = XSDuration p y m d h mn s
+
+
 {- ========= Dev Tools ========= -}
 
 -- | Adjust a simple parser to trim 'isSpace' bytes off each end of
@@ -261,7 +312,7 @@ instance FromSimple XSHexBinary where
 trimEnds :: A.Parser a -> A.Parser a
 trimEnds p = A8.takeWhile isSpace *> p <* A8.takeWhile isSpace
 
-_trySimple :: (FromSimple a, Show a) => S.ByteString -> IO a
+_trySimple :: (FromSimple a, Show a) => S.ByteString -> a
 _trySimple = go . A.parseOnly (trimEnds parseSimple <* A.endOfInput) where
   go (Left er) = error (show er)
-  go (Right a) = print a >> return a
+  go (Right a) = a
