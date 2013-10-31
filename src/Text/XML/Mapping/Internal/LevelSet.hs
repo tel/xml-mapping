@@ -23,24 +23,33 @@ module Text.XML.Mapping.Internal.LevelSet where
 
 import qualified Data.ByteString                   as S
 import qualified Data.HashMap.Strict               as Map
+import           Text.XML.Expat.Mapping.Types
 import           Text.XML.Mapping.NSMap
 import           Text.XML.Mapping.Schema.Namespace
+
+type AttrMap = Map.HashMap QName S.ByteString
 
 -- | The 'LevelState' is the parse-constant contextual state at this
 -- \"level\" of the tree. It includes the current location, attributes
 -- (metadata) in scope, and a set of currently in-scope namespaces.
 data LevelState =
-  LevelState { name       :: QName
-             , attributes :: Map.HashMap QName S.ByteString
-             , namespaces :: NSMap
+  LevelState { name       :: !QName
+             , attributes :: !AttrMap
+             , namespaces :: !NSMap
              }
+
+-- | Kick off a 'LevelSet' from element data.
+initialize :: Tag -> LevelSet
+initialize = undefined
 
 -- | As we traverse the XML tree we build a stack of 'LevelState's
 -- representing the attribute and element context that we're
 -- descending through. This allows for fairly targeted parser error
 -- messages.
-data LevelSet = In   { levelState :: LevelState, _out :: LevelSet }
-              | Root { levelState :: LevelState }
+--
+-- To be more clear, this is isomorphic to `NonEmpty LevelSet`.
+data LevelSet = In   { levelState :: !LevelState, _out :: !(LevelSet) }
+              | Root { levelState :: !LevelState }
 
 -- | Safe '_out'.
 out :: LevelSet -> Maybe LevelSet

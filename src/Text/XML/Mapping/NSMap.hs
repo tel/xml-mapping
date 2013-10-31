@@ -33,12 +33,12 @@ import           Text.XML.Mapping.Schema.Namespace
 
 -- | An 'NSMap' contains all local namespace resolution information.
 data NSMap =
-  NSMap { defaultNS :: Namespace
+  NSMap { defaultNS :: !Namespace
           -- ^ The default namespace for un-tagged qualified names
           -- which get resolved to a default (i.e. not attributes
           -- which are maddeningly element-specific in their
           -- behavior).
-        , nsMap     :: Map.HashMap Prefix Namespace
+        , nsMap     :: !(Map.HashMap Prefix Namespace)
         } deriving Show
 
 -- | 'mappend' combines new 'NSMap' information with the \"rightmost\"
