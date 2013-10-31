@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
 -- |
 -- Module      : Text.XML.Mapping.Schema.SimpleTypes
@@ -32,6 +33,12 @@ module Text.XML.Mapping.Schema.SimpleTypes (
   FromSimple (..),
 
   -- * XML Schema Simple Data Types
+
+  -- ** Number specializations
+  XSNonPositiveInteger (..), XSNonNegativeInteger (..),
+  XSPositiveInteger (..),    XSNegativeInteger (..),
+
+  -- ** Binary types
   XSBase64Binary (..), XSHexBinary (..)
 
   ) where
@@ -130,6 +137,50 @@ instance FromSimple QName where
       Left pfxs ->
         fail ("Namespace resolution failure, could not resolve the prefixes " ++ show pfxs)
       Right qn  -> return qn
+
+newtype XSNonPositiveInteger =
+  XSNonPositiveInteger { getNonPositiveInteger :: Integer }
+  deriving ( Show, Eq, Ord, Enum, Num, Integral, Real )
+
+instance FromSimple XSNonPositiveInteger where
+  parseSimple = do
+    i <- parseSimple
+    if i <= 0
+      then return (XSNonPositiveInteger i)
+      else fail ("Expecting non-positive integer, found positive integer: " ++ show i)
+
+newtype XSNonNegativeInteger =
+  XSNonNegativeInteger { getNonNegativeInteger :: Integer }
+  deriving ( Show, Eq, Ord, Enum, Num, Integral, Real )
+
+instance FromSimple XSNonNegativeInteger where
+  parseSimple = do
+    i <- parseSimple
+    if i >= 0
+      then return (XSNonNegativeInteger i)
+      else fail ("Expecting non-negative integer, found positive integer: " ++ show i)
+
+newtype XSPositiveInteger =
+  XSPositiveInteger { getPositiveInteger :: Integer }
+  deriving ( Show, Eq, Ord, Enum, Num, Integral, Real )
+
+instance FromSimple XSPositiveInteger where
+  parseSimple = do
+    i <- parseSimple
+    if i > 0
+      then return (XSPositiveInteger i)
+      else fail ("Expecting positive integer, found non-positive integer: " ++ show i)
+
+newtype XSNegativeInteger =
+  XSNegativeInteger { getNegativeInteger :: Integer }
+  deriving ( Show, Eq, Ord, Enum, Num, Integral, Real )
+
+instance FromSimple XSNegativeInteger where
+  parseSimple = do
+    i <- parseSimple
+    if i < 0
+      then return (XSNegativeInteger i)
+      else fail ("Expecting negative integer, found non-negative integer: " ++ show i)
 
 newtype XSBase64Binary = XSBase64Binary { getBase64Binary :: S.ByteString }
                        deriving ( Show, Eq, Ord )
