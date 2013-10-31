@@ -99,22 +99,28 @@ instance IsString QName where
 
 -- | Pull a, presumably /qualified/, name apart into its prefix and
 -- its body. Technically this should ensure that any 'Namespace' is an
--- @NCName@, but right now it just pull off any chunk before the first
--- colon.
+-- @NCName@, but right now it just pulls off all the chunks prior to
+-- the final colon and calls them the namespace in order to create a
+-- \"non-colonized\" 'LocalName'.
 --
 -- TODO: Make this smarter.
 --
 -- >>> prefix "foo"
--- (Free, "foo")
+-- Left (LocalName {getLocalName = "foo"})
 --
 -- >>> prefix "foo:bar"
--- (Namespace "foo", "bar")
+-- Right (Prefix {getPrefix = "foo"},LocalName {getLocalName = "bar"})
+--
+-- >>> prefix "foo:bar:baz"
+-- Right (Prefix {getPrefix = "foo:bar"},LocalName {getLocalName = "baz"})
 --
 prefix :: T.Text -> Either LocalName (Prefix, LocalName)
 prefix t = case T.split (==':') t of
   []     -> Left (LocalName T.empty)
   [n]    -> Left (LocalName n)
-  (n:ns) -> Right (Prefix n, LocalName $ T.concat ns)
+  ns     ->
+    let (local:revNs) = reverse ns
+    in  Right (Prefix . T.intercalate ":" $ reverse revNs, LocalName local)
 
 -- | Set the 'Namespace' of a particular 'NamespaceName'.
 (-:) :: Namespace -> QName -> QName
