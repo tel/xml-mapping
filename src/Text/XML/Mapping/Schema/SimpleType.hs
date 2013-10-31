@@ -37,8 +37,6 @@ module Text.XML.Mapping.Schema.SimpleTypes (
 
   -- * XML Schema Simple Data Types
 
-  XSDuration (..),
-
   -- ** Date types
 
   XSPolarity (..), XSDuration (..),
@@ -57,7 +55,6 @@ module Text.XML.Mapping.Schema.SimpleTypes (
 
   ) where
 
-import           Algebra.PartialOrd
 import           Control.Applicative
 import qualified Data.Attoparsec                   as A
 import qualified Data.Attoparsec.Char8             as A8

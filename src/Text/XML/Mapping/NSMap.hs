@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- |
 -- Module      : Text.XML.Mapping.NSMap
 -- Copyright   : (c) Joseph Abrahamson 2013
