@@ -42,7 +42,7 @@ data LevelState =
 data LevelSet = In   { levelState :: LevelState, _out :: LevelSet }
               | Root { levelState :: LevelState }
 
--- | /Internal./ Safe '_out'.
+-- | Safe '_out'.
 out :: LevelSet -> Maybe LevelSet
 out i@In{} = Just (_out i)
 out _      = Nothing
