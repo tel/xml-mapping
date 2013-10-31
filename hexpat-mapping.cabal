@@ -56,12 +56,13 @@ library
     Text.XML.Expat.Mapping.Internal.Parser
   build-depends:       base >=4.6 && <4.7
                      , attoparsec
-                     , bytestring
-                     , base64-bytestring
                      , base16-bytestring
-                     , hashable
+                     , base64-bytestring
+                     , bytestring
                      , errors
+                     , hashable
                      , hexpat
+                     , lattices
                      , lens
                      , mtl
                      , semigroups

@@ -26,6 +26,9 @@
 --   they'll have the initial whitespace skipped but the final
 --   whitespace retained. The alternative would require a traversal
 --   over every 'S.ByteString' parsed.
+--
+-- * Doing XML-style date algebra is a complete pain in the ass---but
+--   it IS completely defined in the XML spec.
 
 module Text.XML.Mapping.Schema.SimpleTypes (
 
@@ -33,6 +36,8 @@ module Text.XML.Mapping.Schema.SimpleTypes (
   FromSimple (..),
 
   -- * XML Schema Simple Data Types
+
+  XSDuration (..),
 
   -- ** Date types
 
@@ -52,6 +57,7 @@ module Text.XML.Mapping.Schema.SimpleTypes (
 
   ) where
 
+import           Algebra.PartialOrd
 import           Control.Applicative
 import qualified Data.Attoparsec                   as A
 import qualified Data.Attoparsec.Char8             as A8
@@ -262,6 +268,23 @@ instance FromSimple XSHexBinary where
 data XSPolarity = XSNegative | XSPositive
                 deriving ( Show, Eq, Ord )
 
+-- Eq and PartialOrd instances should be defined according to "3.2.6.2
+-- Order relation on duration" of the XML Schema Datatype Reference.
+
+-- In general, the ·order-relation· on duration is a partial order
+-- since there is no determinate relationship between certain
+-- durations such as one month (P1M) and 30 days (P30D). The
+-- ·order-relation· of two duration values x and y is x < y iff s+x <
+-- s+y for each qualified dateTime s in the list below. These values
+-- for s cause the greatest deviations in the addition of dateTimes
+-- and durations. Addition of durations to time instants is defined in
+-- Adding durations to dateTimes (§E).
+--
+-- 1696-09-01T00:00:00Z
+-- 1697-02-01T00:00:00Z
+-- 1903-03-01T00:00:00Z
+-- 1903-07-01T00:00:00Z
+
 data XSDuration =
   XSDuration { polarity    :: XSPolarity
              , xsDurYear   :: Integer
@@ -271,7 +294,7 @@ data XSDuration =
              , xsDurMinute :: Int
              , xsDurSecond :: Double
              }
-  deriving ( Show, Eq, Ord )
+  deriving ( Show )
 
 instance FromSimple XSDuration where
   -- Ugh..
@@ -303,7 +326,6 @@ instance FromSimple XSDuration where
            -> XSDuration
       mkDuration p y m d Nothing           = XSDuration p y m d 0 0  0
       mkDuration p y m d (Just (h, mn, s)) = XSDuration p y m d h mn s
-
 
 {- ========= Dev Tools ========= -}
 
