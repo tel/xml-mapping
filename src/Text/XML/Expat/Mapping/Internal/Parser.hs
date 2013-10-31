@@ -109,6 +109,9 @@ forkP parser = P $ ask >>= \level -> get >>= \st -> return (runP parser level st
 class FromSimpleXMLType a where
   fromSimpleXMLType :: ByteString -> Err String a
 
+instance FromSimpleXMLType () where
+  fromSimpleXMLType _ = pure ()
+
 instance FromSimpleXMLType ByteString where
   fromSimpleXMLType = return
 
@@ -160,6 +163,22 @@ xsOptional parser = P $ do
 -- | Specializes 'xsOptional'.
 xsMaybe :: Parser a -> Parser (Maybe a)
 xsMaybe = xsOptional
+
+-- | Defaults for a 'Maybe' parser
+xsDefault :: a -> Parser (Maybe a) -> Parser a
+xsDefault val p = P $ do
+  mayA <- unP p
+  case mayA of
+    Nothing -> return val
+    Just a  -> return a
+
+-- | Matches only when the 'Eq'ual to a sentinel value.
+fixed :: (Show a, Eq a) => a -> Parser a -> Parser a
+fixed val p = P $ do
+  a <- unP p
+  if a == val
+    then return a
+    else fail ("Did not match fixed value: " ++ show val)
 
 -- | Parse the value of an XML attribute out of the current parsing
 -- context.
@@ -276,7 +295,8 @@ load tag parser = P $ do
         (Right a, [])        -> return a
         (_      , leftovers) -> fail ("Did not consume all children: " ++ show leftovers)
 
--- | Descend into the next element, running a parser.
+-- | Descend into the next element so long as it matches, running a
+-- parser.
 xsElement :: NamespaceName -> Parser a -> Parser a
 xsElement nsn parser = P $ do
   es <- get
@@ -287,3 +307,34 @@ xsElement nsn parser = P $ do
       if rightElem
         then unP parser <* put es'
         else fail ("Expecting element named " ++ show nsn)
+
+-- | XML Complex Types, i.e. types which are deserialized from some
+-- sequence or group of elements.
+class FromXML a where
+  fromXML :: Parser a
+
+defaultNamespaceMap :: NSMap
+defaultNamespaceMap =
+  NSMap Free $ Map.fromList [("xmlns", "http://www.w3.org/2000/xmlns/")]
+
+-- | Kick off a parser from scratch.
+runParser' :: Parser a -> NSMap -> Tag -> Either ParseError a
+runParser' (P go) nsmap tag =
+  fst $ flip runState (eChildren tag) $ runErrorT $
+  case newLevelState tag (LevelState "" mempty nsmap) of
+    Left pfxs -> fail $ "Could not resolve these XML prefixes: " ++ show pfxs
+    Right ls0 -> runReaderT go (Root ls0)
+
+runParser :: Parser a -> Tag -> Either ParseError a
+runParser p = runParser' p defaultNamespaceMap
+
+instance FromXML () where
+  fromXML = pure ()
+
+instance FromXML [Tag] where
+  fromXML = P $ state $ \s -> (s, [])
+
+decode :: Parser a -> ByteString -> Either ParseError a
+decode (P parser) bs = case parse' defaultParseOptions bs of
+  Left e    -> throwError (strMsg $ "Malformed XML: " ++ show e)
+  Right tag -> runParser (P $ put [tag] >> parser) tag
