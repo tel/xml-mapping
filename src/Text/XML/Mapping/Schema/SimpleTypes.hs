@@ -38,6 +38,12 @@ module Text.XML.Mapping.Schema.SimpleTypes (
   XSNonPositiveInteger (..), XSNonNegativeInteger (..),
   XSPositiveInteger (..),    XSNegativeInteger (..),
 
+  -- *** Byte Specializations
+
+  XSShort (..), XSUnsignedShort (..),
+  XSByte  (..), XSUnsignedByte  (..),
+
+
   -- ** Binary types
   XSBase64Binary (..), XSHexBinary (..)
 
@@ -50,8 +56,10 @@ import qualified Data.ByteString                   as S
 import qualified Data.ByteString.Base16            as S16
 import qualified Data.ByteString.Base64            as S64
 import           Data.Char                         (isSpace)
+import           Data.Int
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
+import           Data.Word
 
 import           Text.XML.Mapping.NSMap
 import           Text.XML.Mapping.Schema.Namespace
@@ -128,7 +136,48 @@ instance FromSimple a => FromSimple [a] where
 instance (FromSimple a, FromSimple b) => FromSimple (Either a b) where
   parseSimple = (Left <$> parseSimple) <|> (Right <$> parseSimple)
 
+instance FromSimple Word16 where
+  parseSimple = do
+    i <- parseSimple :: A.Parser Int
+    if i < 0 || i > 65535
+      then fail "Expecting unsigned-short, saw out-of-range integer"
+      else return (fromIntegral i)
+
+instance FromSimple Int16 where
+  parseSimple = do
+    i <- parseSimple :: A.Parser Int
+    if i < -32768 || i > 32767
+      then fail "Expecting signed-short, saw out-of-range integer"
+      else return (fromIntegral i)
+
+instance FromSimple Word8 where
+  parseSimple = do
+    i <- parseSimple :: A.Parser Int
+    if i < 0 || i > 255
+      then fail "Expecting unsigned-byte, saw out-of-range integer"
+      else return (fromIntegral i)
+
+instance FromSimple Int8 where
+  parseSimple = do
+    i <- parseSimple :: A.Parser Int
+    if i < -128 || i > 127
+      then fail "Expecting signed-byte, saw out-of-range integer"
+      else return (fromIntegral i)
+
+
 {- ========= XSD Types ========= -}
+
+newtype XSShort = XSShort { getShort :: Int16 }
+                deriving ( Eq, Bounded, Enum, Ord, Integral, Num, Real, Show, FromSimple )
+
+newtype XSUnsignedShort = XSUnsignedShort { getUnsignedShort :: Int16 }
+                deriving ( Eq, Bounded, Enum, Ord, Integral, Num, Real, Show, FromSimple )
+
+newtype XSByte = XSByte { getByte :: Int16 }
+                deriving ( Eq, Bounded, Enum, Ord, Integral, Num, Real, Show, FromSimple )
+
+newtype XSUnsignedByte = XSUnsignedByte { getUnsignedByte :: Int16 }
+                deriving ( Eq, Bounded, Enum, Ord, Integral, Num, Real, Show, FromSimple )
 
 instance FromSimple QName where
   parseSimple' nsmap = do
