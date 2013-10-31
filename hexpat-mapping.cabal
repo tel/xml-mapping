@@ -7,7 +7,7 @@ description:
   Haskell types as XML trees. This library aims more to be user
   friendly and runtime compatible with XSD validation than type safe.
   .
-  /Why not just use the various @*.Pickle@ libraries?/
+  /Why not just use the various Pickle libraries?/
   .
   The @*.Pickle@ XML libraries are based around a bi-directional
   printer-parser type, often called @PU@. While this has the advantage
