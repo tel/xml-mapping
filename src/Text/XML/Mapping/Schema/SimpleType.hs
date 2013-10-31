@@ -142,6 +142,7 @@ instance FromSimple a => FromSimple [a] where
         Left pe -> fail (show pe)
         Right a -> return a
 
+-- | Unions of simple types
 instance (FromSimple a, FromSimple b) => FromSimple (Either a b) where
   parseSimple = (Left <$> parseSimple) <|> (Right <$> parseSimple)
 
