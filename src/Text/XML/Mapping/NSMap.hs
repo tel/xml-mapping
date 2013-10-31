@@ -4,11 +4,11 @@
 -- Module      : Text.XML.Mapping.NSMap
 -- Copyright   : (c) Joseph Abrahamson 2013
 -- License     : MIT
---
+-- .
 -- Maintainer  : me@jspha.com
 -- Stability   : experimental
 -- Portability : non-portable
---
+-- .
 -- Prefix resolution mapping.
 
 module Text.XML.Mapping.NSMap (

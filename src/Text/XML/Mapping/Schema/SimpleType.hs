@@ -5,11 +5,11 @@
 -- Module      : Text.XML.Mapping.Schema.SimpleTypes
 -- Copyright   : (c) Joseph Abrahamson 2013
 -- License     : MIT
---
+-- .
 -- Maintainer  : me@jspha.com
 -- Stability   : experimental
 -- Portability : non-portable
---
+-- .
 -- Parsers for XML @xs:simpleType@ data mapping.
 -- .
 -- XML attributes and text elements are parsed as @xs:simpleType@s.
@@ -19,7 +19,7 @@
 -- 'showList' trick to enable @[a]@ to mean an XML, space-separated
 -- list.
 
-module Text.XML.Mapping.Schema.SimpleTypes (
+module Text.XML.Mapping.Schema.SimpleType (
 
   -- * Parser class
   FromSimple (..),

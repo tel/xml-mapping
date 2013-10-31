@@ -6,11 +6,11 @@
 -- Module      : Text.XML.Mapping.Schema.Namespace
 -- Copyright   : (c) Joseph Abrahamson 2013
 -- License     : MIT
---
+-- .
 -- Maintainer  : me@jspha.com
 -- Stability   : experimental
 -- Portability : non-portable
---
+-- .
 -- Namespace and name types for XML.
 
 module Text.XML.Mapping.Schema.Namespace (

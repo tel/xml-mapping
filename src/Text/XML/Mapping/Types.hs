@@ -2,16 +2,16 @@
 -- Module      : Text.XML.Mapping.Types
 -- Copyright   : (c) Joseph Abrahamson 2013
 -- License     : MIT
---
+-- .
 -- Maintainer  : me@jspha.com
 -- Stability   : experimental
 -- Portability : non-portable
---
+-- .
 -- Globally relevant types for XML mapping. Primarily used to create
 -- an abstract, simplified veneer over the @hexpat@ types so that they
 -- can eventually be replaced.
 
-module Text.XML.Expat.Mapping.Types (
+module Text.XML.Mapping.Types (
 
   Tag (..), children, rawAttrs, rawName, rawText
 
