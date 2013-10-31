@@ -54,6 +54,7 @@ library
     Text.XML.Mapping.NSMap
     Text.XML.Mapping.Schema.Namespace
     Text.XML.Mapping.Schema.SimpleType
+    Text.XML.Mapping.Internal.LevelSet
   build-depends:       base >=4.6 && <4.7
                      , attoparsec
                      , base16-bytestring
