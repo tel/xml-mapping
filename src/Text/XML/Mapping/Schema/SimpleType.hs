@@ -19,17 +19,6 @@
 -- 'showList' trick to enable @[a]@ to mean an XML, space-separated
 -- list.
 
--- Notes
-
--- * The whitespace facet should be chosen with robust defaults. This
---   behavior is a bit strange for 'S.ByteString' parsers though since
---   they'll have the initial whitespace skipped but the final
---   whitespace retained. The alternative would require a traversal
---   over every 'S.ByteString' parsed.
---
--- * Doing XML-style date algebra is a complete pain in the ass---but
---   it IS completely defined in the XML spec.
-
 module Text.XML.Mapping.Schema.SimpleTypes (
 
   -- * Parser class
@@ -69,6 +58,17 @@ import           Data.Word
 
 import           Text.XML.Mapping.NSMap
 import           Text.XML.Mapping.Schema.Namespace
+
+-- Notes
+
+-- * The whitespace facet should be chosen with robust defaults. This
+--   behavior is a bit strange for 'S.ByteString' parsers though since
+--   they'll have the initial whitespace skipped but the final
+--   whitespace retained. The alternative would require a traversal
+--   over every 'S.ByteString' parsed.
+--
+-- * Doing XML-style date algebra is a complete pain in the ass---but
+--   it IS completely defined in the XML spec.
 
 {- ========= Basic Instances ========= -}
 
