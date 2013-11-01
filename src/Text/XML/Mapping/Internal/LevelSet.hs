@@ -42,13 +42,22 @@ data LevelState =
              , namespaces :: !NSMap
              }
 
+data LevelError = UnresolvedPrefixes [Prefix] | NoTag
+                                                deriving ( Show, Eq, Ord )
+
+levelerror :: Maybe (Either [Prefix] a) -> Either LevelError a
+levelerror Nothing            = Left NoTag
+levelerror (Just (Left pfxs)) = Left (UnresolvedPrefixes pfxs)
+levelerror (Just (Right a))   = Right a
+
 -- | Kick off a 'LevelSet' from element data.
-initialize :: Tag -> Maybe (Either [Prefix] LevelState)
-initialize t = case rawName t of
-  Nothing   -> Nothing -- text node
-  Just rName -> Just $ do
+initialize :: Tag -> Either LevelError LevelState
+initialize t = build t defaultNSMap
+
+build :: Tag -> NSMap -> Either LevelError LevelState
+build t nsmap0 = levelerror . flip fmap (rawName t) $ \rName -> do
     let rAttrs             = rawAttrs t
-        nsmap@(NSMap _ hm) = defaultNSMap <> fromAttrs rAttrs
+        nsmap@(NSMap _ hm) = nsmap0 <> fromAttrs rAttrs
     nm@(QName def _) <- resolve nsmap rName
 
     -- We adjust the default namespace to match the element namespace
@@ -68,8 +77,8 @@ initialize t = case rawName t of
 
 -- | Appends a new derived 'LevelState' to the end of a
 -- 'LevelSet'. See 'initialize'.
-(!<<) :: Tag -> LevelSet -> Either [Prefix] LevelSet
-(!<<) t lset = (`In` lset) <$> initialize t (levelState lset)
+(!<<) :: Tag -> LevelSet -> Either LevelError LevelSet
+(!<<) t lset = In <$> build t (namespaces $ levelState lset) <*> pure lset
 
 -- | As we traverse the XML tree we build a stack of 'LevelState's
 -- representing the attribute and element context that we're
