@@ -17,8 +17,10 @@ module Text.XML.Mapping.Types (
 
   ) where
 
-import qualified Data.ByteString     as S
-import qualified Data.Text           as T
+import qualified Data.Attoparsec.Char8 as A8
+import qualified Data.ByteString       as S
+import           Data.Char             (isSpace)
+import qualified Data.Text             as T
 import           Text.XML.Expat.Tree
 
 
@@ -51,7 +53,13 @@ rawText (Tag (Text t)) = Just t
 rawText _              = Nothing
 
 -- | Determines whether this tag is ignorable. Essentially this only
--- occurs if it's an "empty text" tag.
+-- occurs if it's an "empty text" tag---either complete empty or only
+-- spaces.
 ignorable :: Tag -> Bool
-ignorable (Tag (Text t)) = S.null t
+ignorable (Tag (Text t))
+  | S.null t  = True
+  | otherwise =
+    let isRight Left{} = False
+        isRight _      = True
+    in isRight $ A8.parseOnly (A8.takeWhile isSpace >> A8.endOfInput) t
 ignorable _              = False

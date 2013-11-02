@@ -18,6 +18,8 @@ module Text.XML.Mapping.Internal.Class where
 import           Control.Applicative
 import qualified Data.Attoparsec                    as A
 import           Data.List.NonEmpty                 (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty                 as NEL
+import           Data.Maybe                         (fromJust)
 import           Text.XML.Mapping.Schema.Mixed
 import           Text.XML.Mapping.Schema.Namespace
 import           Text.XML.Mapping.Schema.SimpleType
@@ -54,6 +56,12 @@ class XML a where
 
 instance XML () where
   xml = pure ()
+
+instance XML a => XML [a] where
+  xml = many xml
+
+instance XML a => XML (NonEmpty a) where
+  xml = (fromJust . NEL.nonEmpty) <$> some xml
 
 eitherX :: X f => f a -> f b -> f (Either a b)
 eitherX fa fb = Left <$> fa <|> Right <$> fb

@@ -39,7 +39,7 @@ data NSMap =
           -- which are maddeningly element-specific in their
           -- behavior).
         , nsMap     :: !(Map.HashMap Prefix Namespace)
-        } deriving Show
+        } deriving ( Show, Eq )
 
 -- | 'mappend' combines new 'NSMap' information with the \"rightmost\"
 -- 'NSMap' winning. This combination is not guaranteed to be a true

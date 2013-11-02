@@ -15,10 +15,13 @@ import           Text.XML.Mapping.Internal.LevelSet
 import           Text.XML.Mapping.Schema.Namespace
 
 -- | Abstract for now.
-data ParseError
-
-parseError :: ParseError
-parseError = error "ParseError {DNE!}"
+data ParseError = Seq ParseError ParseError
+                | Or  ParseError ParseError
+                | Speculated ParseError
+                | ParseError { peLoc    :: Maybe LevelSet
+                             , peReason :: [Reason]
+                             }
+                deriving ( Show, Eq )
 
 data Reason = NoAttr QName
             | Empty
@@ -29,26 +32,30 @@ data Reason = NoAttr QName
             | LevelError LevelError
             | WrongElement QName
             | LeftoverElements
+            deriving ( Show, Eq )
 
 -- | Primary constructor
 at :: LevelSet -> ParseError
-at _ = parseError
+at ls = ParseError (Just ls) []
 
 at0 :: ParseError
-at0 = parseError
+at0 = ParseError Nothing []
 
 -- | Append a new reason for failure
 reason :: Reason -> ParseError -> ParseError
-reason _ _ = parseError
+reason r (ParseError loc res) = ParseError loc (r:res)
+reason r (Seq pe1 pe2) = Seq (reason r pe1) (reason r pe2)
+reason r (Or  pe1 pe2) = Or  (reason r pe1) (reason r pe2)
+reason r (Speculated pe) = Speculated (reason r pe)
 
 reasonAt :: Reason -> LevelSet -> ParseError
 reasonAt r ls = reason r (at ls)
 
 seq :: ParseError -> ParseError -> ParseError
-seq pe1 _pe2 = pe1
+seq = Seq
 
 or :: ParseError -> ParseError -> ParseError
-or pe1 _pe2 = pe1
+or = Or
 
 empty :: Reason
 empty = Empty
@@ -84,4 +91,4 @@ leftoverElements = LeftoverElements
 
 -- | Denotes a parse error that only occurred speculatively.
 speculated :: ParseError -> ParseError
-speculated = id
+speculated = Speculated

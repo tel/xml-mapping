@@ -40,7 +40,10 @@ data LevelState =
   LevelState { name       :: !QName
              , attributes :: !AttrMap
              , namespaces :: !NSMap
-             }
+             } deriving ( Eq )
+
+instance Show LevelState where
+  show (LevelState { name = n }) = "(" ++ show n ++ ")"
 
 data LevelError = UnresolvedPrefixes [Prefix] | NoTag
                                                 deriving ( Show, Eq, Ord )
@@ -75,11 +78,6 @@ build t nsmap0 = levelerror . flip fmap (rawName t) $ \rName -> do
                -> Either [Prefix] (Map.HashMap QName S.ByteString)
     mkAttrs nsmap (key, val) m0 = (\nsn -> Map.insert nsn val m0) <$> resolve nsmap key
 
--- | Appends a new derived 'LevelState' to the end of a
--- 'LevelSet'. See 'initialize'.
-(!<<) :: Tag -> LevelSet -> Either LevelError LevelSet
-(!<<) t lset = In <$> build t (namespaces $ levelState lset) <*> pure lset
-
 -- | As we traverse the XML tree we build a stack of 'LevelState's
 -- representing the attribute and element context that we're
 -- descending through. This allows for fairly targeted parser error
@@ -88,6 +86,19 @@ build t nsmap0 = levelerror . flip fmap (rawName t) $ \rName -> do
 -- To be more clear, this is isomorphic to `NonEmpty LevelSet`.
 data LevelSet = In   { levelState :: !LevelState, _out :: !(LevelSet) }
               | Root { levelState :: !LevelState }
+              deriving ( Eq )
+
+lsToList :: LevelSet -> [LevelState]
+lsToList (Root ls)    = [ls]
+lsToList (In ls next) = ls : lsToList next
+
+instance Show LevelSet where
+  show ls = "LevelSet" ++ show (lsToList ls)
+
+-- | Appends a new derived 'LevelState' to the end of a
+-- 'LevelSet'. See 'initialize'.
+(!<<) :: Tag -> LevelSet -> Either LevelError LevelSet
+(!<<) t lset = In <$> build t (namespaces $ levelState lset) <*> pure lset
 
 -- | Is this the name of the current element context?
 elemHere :: QName -> LevelSet -> Bool
