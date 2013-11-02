@@ -22,6 +22,8 @@ import           Data.Attoparsec.Number
 import           Data.ByteString                            (ByteString)
 import           Data.Foldable                              (foldrM)
 import qualified Data.HashMap.Strict                        as Map
+import           Data.List.NonEmpty                         (NonEmpty)
+import qualified Data.List.NonEmpty                         as NEL
 import           Data.Monoid
 import           Data.Text                                  (Text)
 import qualified Data.Text                                  as T
@@ -331,10 +333,32 @@ runParser p = runParser' p defaultNamespaceMap
 instance FromXML () where
   fromXML = pure ()
 
-instance FromXML [Tag] where
-  fromXML = P $ state $ \s -> (s, [])
-
 decode :: Parser a -> ByteString -> Either ParseError a
 decode (P parser) bs = case parse' defaultParseOptions bs of
   Left e    -> throwError (strMsg $ "Malformed XML: " ++ show e)
   Right tag -> runParser (P $ put [tag] >> parser) tag
+
+xsOpt :: Parser a -> Parser (Maybe a)
+xsOpt = xsOptional
+
+xsMany :: Parser a -> Parser [a]
+xsMany parser = P $ do
+  es <- get
+  go [] es
+  where
+    go ret []      = put [] >> return (reverse ret)
+    go ret (e:es') = case runParser parser e of
+      Left _  -> put (e:es') >> return (reverse ret)
+      Right a -> go (a:ret) es'
+
+xsSome :: Parser a -> Parser (NonEmpty a)
+xsSome par =  P $ do
+  res <- parMany
+  case res of
+    []     -> fail "Expecting at least one element"
+    (x:xs) -> return (x NEL.:| xs)
+  where
+    (P parMany) = xsMany par
+
+(#>) :: NamespaceName -> Parser a -> Parser a
+(#>) = xsElement
