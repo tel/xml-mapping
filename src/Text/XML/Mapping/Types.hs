@@ -13,7 +13,7 @@
 
 module Text.XML.Mapping.Types (
 
-  Tag (..), children, rawAttrs, rawName, rawText
+  Tag (..), children, rawAttrs, rawName, rawText, ignorable
 
   ) where
 
@@ -49,3 +49,9 @@ rawName (Tag e)      = Just (eName e)
 rawText :: Tag -> Maybe S.ByteString
 rawText (Tag (Text t)) = Just t
 rawText _              = Nothing
+
+-- | Determines whether this tag is ignorable. Essentially this only
+-- occurs if it's an "empty text" tag.
+ignorable :: Tag -> Bool
+ignorable (Tag (Text t)) = S.null t
+ignorable _              = False

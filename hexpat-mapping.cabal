@@ -52,9 +52,12 @@ library
 
   exposed-modules:     
     Text.XML.Mapping.NSMap
+    Text.XML.Mapping.Types
     Text.XML.Mapping.Schema.Namespace
     Text.XML.Mapping.Schema.SimpleType
     Text.XML.Mapping.Internal.LevelSet
+    Text.XML.Mapping.Internal.Parser
+    Text.XML.Mapping.Internal.ParseError
   build-depends:       base >=4.6 && <4.7
                      , attoparsec
                      , base16-bytestring

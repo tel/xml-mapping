@@ -89,6 +89,10 @@ build t nsmap0 = levelerror . flip fmap (rawName t) $ \rName -> do
 data LevelSet = In   { levelState :: !LevelState, _out :: !(LevelSet) }
               | Root { levelState :: !LevelState }
 
+-- | Is this the name of the current element context?
+elemHere :: QName -> LevelSet -> Bool
+elemHere qn ls = name (levelState ls) == qn
+
 -- | Safe '_out'.
 out :: LevelSet -> Maybe LevelSet
 out i@In{} = Just (_out i)
