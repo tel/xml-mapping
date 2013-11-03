@@ -45,6 +45,7 @@ module Text.XML.Mapping.Schema.SimpleType (
   ) where
 
 import           Control.Applicative
+import           Data.Attoparsec                   ((<?>))
 import qualified Data.Attoparsec                   as A
 import qualified Data.Attoparsec.Char8             as A8
 import qualified Data.ByteString                   as S
@@ -85,17 +86,17 @@ class FromSimple a where
   parseSimple' _ = parseSimple
 
 instance FromSimple () where
-  parseSimple = pure ()
+  parseSimple = pure () <?> "Unit"
 
 -- | Parses a non-empty 'S.ByteString'
 instance FromSimple S.ByteString where
-  parseSimple = A.takeWhile1 (const True)
+  parseSimple = A.takeWhile1 (const True) <?> "raw ByteString"
 
 -- | Parses non-empty 'T.Text'
 instance FromSimple T.Text where
-  parseSimple =
-    parseSimple >>= either decodeError return . TE.decodeUtf8'
-    where decodeError de = fail ("Unicode decoding failure: " ++ show de)
+  parseSimple = parser <?> "raw Text" where
+    parser = parseSimple >>= either decodeError return . TE.decodeUtf8'
+    decodeError de = fail ("Unicode decoding failure: " ++ show de)
 
 -- | Matches @xs:boolean@-style booleans
 instance FromSimple Bool where
@@ -105,27 +106,34 @@ instance FromSimple Bool where
              , A.string "false" *> pure False
              , A.string "0"     *> pure False
              ]
+    <?> "xsd:boolean"
 
 instance FromSimple A8.Number where
-  parseSimple = A8.number
+  parseSimple = A8.number <?> "Attoparsec Number"
 
 instance FromSimple Integer where
-  parseSimple = parseSimple >>= tryI where
-    tryI (A8.I i) = return i
-    tryI (A8.D _) = fail "Expecting xs:integer, saw a xs:double"
+  parseSimple = parser <?> "integer"
+    where parser = parseSimple >>= tryI
+          tryI (A8.I i) = return i
+          tryI (A8.D _) = fail "Expecting xs:integer, saw a xs:double"
 
 instance FromSimple Int where
-  parseSimple = parseSimple >>= tryI where
-    tryI (A8.I i) = return (fromIntegral i)
-    tryI (A8.D _) = fail "Expecting xs:integer, saw a xs:double"
+  parseSimple = parser <?> "int"
+    where
+      parser = parseSimple >>= tryI
+      tryI (A8.I i) = return (fromIntegral i)
+      tryI (A8.D _) = fail "Expecting xs:integer, saw a xs:double"
 
 instance FromSimple Double where
-  parseSimple = parseSimple >>= tryD where
-    tryD (A8.I i) = return (fromIntegral i)
-    tryD (A8.D d) = return d
+  parseSimple = parser <?> "double"
+    where
+      parser = parseSimple >>= tryD
+      tryD (A8.I i) = return (fromIntegral i)
+      tryD (A8.D d) = return d
 
 instance FromSimple Float where
   parseSimple = fromRational . toRational <$> (parseSimple :: A.Parser Double)
+                <?> "float"
 
 -- | Space separated XML list---first parses each component as an
 -- 'XSWord' then subparses on each 'XSWord'.
@@ -144,32 +152,40 @@ instance (FromSimple a, FromSimple b) => FromSimple (Either a b) where
   parseSimple = (Left <$> parseSimple) <|> (Right <$> parseSimple)
 
 instance FromSimple Word16 where
-  parseSimple = do
-    i <- parseSimple :: A.Parser Int
-    if i < 0 || i > 65535
-      then fail "Expecting unsigned-short, saw out-of-range integer"
-      else return (fromIntegral i)
+  parseSimple = parser <?> "xsd:unsigned_short"
+    where
+      parser = do
+        i <- parseSimple :: A.Parser Int
+        if i < 0 || i > 65535
+          then fail "Expecting unsigned-short, saw out-of-range integer"
+          else return (fromIntegral i)
 
 instance FromSimple Int16 where
-  parseSimple = do
-    i <- parseSimple :: A.Parser Int
-    if i < -32768 || i > 32767
-      then fail "Expecting signed-short, saw out-of-range integer"
-      else return (fromIntegral i)
+  parseSimple = parser <?> "xsd:signed_short"
+    where
+      parser = do
+        i <- parseSimple :: A.Parser Int
+        if i < -32768 || i > 32767
+          then fail "Expecting signed-short, saw out-of-range integer"
+          else return (fromIntegral i)
 
 instance FromSimple Word8 where
-  parseSimple = do
-    i <- parseSimple :: A.Parser Int
-    if i < 0 || i > 255
-      then fail "Expecting unsigned-byte, saw out-of-range integer"
-      else return (fromIntegral i)
+  parseSimple = parser <?> "xsd:unsigned_byte"
+    where
+      parser = do
+        i <- parseSimple :: A.Parser Int
+        if i < 0 || i > 255
+          then fail "Expecting unsigned-byte, saw out-of-range integer"
+          else return (fromIntegral i)
 
 instance FromSimple Int8 where
-  parseSimple = do
-    i <- parseSimple :: A.Parser Int
-    if i < -128 || i > 127
-      then fail "Expecting signed-byte, saw out-of-range integer"
-      else return (fromIntegral i)
+  parseSimple = parser <?> "xsd:signed_byte"
+    where
+      parser = do
+        i <- parseSimple :: A.Parser Int
+        if i < -128 || i > 127
+          then fail "Expecting signed-byte, saw out-of-range integer"
+          else return (fromIntegral i)
 
 
 {- ========= Basic XSD Simple Types ========= -}

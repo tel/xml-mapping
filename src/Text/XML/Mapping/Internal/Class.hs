@@ -24,6 +24,9 @@ import           Text.XML.Mapping.Schema.Mixed
 import           Text.XML.Mapping.Schema.Namespace
 import           Text.XML.Mapping.Schema.SimpleType
 
+-- | A field contains a key and a type.
+data El a = El { name :: QName, el :: a } deriving ( Eq, Show, Functor )
+
 -- | An abstract definition of the parser.
 class Alternative f => X f where
 
@@ -37,7 +40,7 @@ class Alternative f => X f where
   -- | Run a new 'p'-type parser on the children of the next element,
   -- using the improved element context and consuming the element if
   -- successful.
-  pElem :: QName -> f a -> f a
+  pElem :: QName -> f a -> f (El a)
 
 attr :: (FromSimple a, X f) => QName -> f a
 attr = pAttr parseSimple
@@ -46,7 +49,7 @@ text :: (FromSimple a, X f) => f a
 text = pText parseSimple
 
 (#>) :: X f => QName -> f a -> f a
-(#>) = pElem
+qn #> p = el <$> pElem qn p
 
 nonEmpty :: X f => f a -> f (NonEmpty a)
 nonEmpty p = (:|) <$> p <*> many p

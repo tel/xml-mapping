@@ -114,17 +114,17 @@ instance X Parser where
           $ Left $ PE.reasonAt PE.leftoverElements ls'
 
         -- And we're done
-        return (res, ts)
+        return (El qn res, ts)
 
 eitLevelError :: LevelSet -> Either LevelError b -> Either PE.ParseError b
 eitLevelError ls = either (\le -> Left $ PE.reasonAt (PE.levelError le) ls) Right
 
-runParser :: Parser a -> QName -> Tag -> Either PE.ParseError a
-runParser p qn t = do
+runParser :: Parser a -> Tag -> Either PE.ParseError a
+runParser p t = do
   lstate <- case initialize t of
     Left le -> Left $ PE.reason (PE.levelError le) PE.at0
     Right x -> Right x
   let ls = Root lstate
-  (res, leftovers) <- unP (pElem qn p) ls [t]
+  (res, leftovers) <- unP p ls [t]
   unless (null leftovers) $ Left $ PE.reasonAt PE.leftoverElements ls
   return res

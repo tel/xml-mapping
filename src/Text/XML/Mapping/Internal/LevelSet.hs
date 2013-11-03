@@ -93,7 +93,7 @@ lsToList (Root ls)    = [ls]
 lsToList (In ls next) = ls : lsToList next
 
 instance Show LevelSet where
-  show ls = "LevelSet" ++ show (lsToList ls)
+  show ls = "LevelSet" ++ show (reverse $ lsToList ls)
 
 -- | Appends a new derived 'LevelState' to the end of a
 -- 'LevelSet'. See 'initialize'.

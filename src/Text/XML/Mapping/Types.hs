@@ -33,6 +33,9 @@ import           Text.XML.Expat.Tree
 
 newtype Tag = Tag { unTag :: Node T.Text S.ByteString }
 
+instance Show Tag where
+  show t = "<" ++ show (rawName t) ++ ">"
+
 -- | If this is a text node then there are no children.
 children :: Tag -> [Tag]
 children (Tag Text{}) = []

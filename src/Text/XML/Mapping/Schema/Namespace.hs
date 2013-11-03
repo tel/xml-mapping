@@ -85,9 +85,9 @@ instance Hashable QName
 
 -- | Clark notation: @{namespace}name@ with 'Free' being @{}@.
 instance Show QName where
-  show (QName Free (LocalName tag))           = "{}" ++ T.unpack tag
+  show (QName Free (LocalName tag))           = "<{}" ++ T.unpack tag ++ ">"
   show (QName (Namespace ns) (LocalName tag)) =
-    "{" ++ S8.unpack ns ++ "}" ++ T.unpack tag
+    "<{" ++ S8.unpack ns ++ "}" ++ T.unpack tag ++ ">"
 
 -- | This can only be used to fix local part of a
 -- 'NamespaceName'. It's a runtime error to use "fromString" to create
