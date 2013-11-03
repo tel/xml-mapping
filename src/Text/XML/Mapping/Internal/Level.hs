@@ -38,6 +38,7 @@ module Text.XML.Mapping.Internal.Level (
 import qualified Data.ByteString                   as S
 import           Data.Foldable
 import qualified Data.HashMap.Strict               as Map
+import           Data.List                         (intercalate)
 import           Data.Monoid
 import qualified Data.Text                         as T
 import qualified Text.XML.Mapping.NSMap            as NS
@@ -58,6 +59,9 @@ data Level = Root { nsContext :: !NS.NSMap }
                   , _nextStep   :: Level
                   }
              deriving ( Eq )
+
+instance Show Level where
+  show l = "(Level {{ " ++ intercalate " >> " (map show (path l)) ++ " }})"
 
 name :: Level -> Maybe QName
 name Root{} = Nothing
