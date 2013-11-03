@@ -20,7 +20,7 @@ import           Control.Applicative
 import qualified Data.Attoparsec                      as A
 import qualified Data.ByteString                      as S
 import           Data.Semigroup
-import           Text.XML.Mapping.Internal.Class
+import           Text.XML.Mapping.Internal.Class      (El (El), X (..))
 import           Text.XML.Mapping.Internal.Err
 import           Text.XML.Mapping.Internal.Level
 import           Text.XML.Mapping.Internal.ParseError
@@ -96,22 +96,23 @@ instance X Parser where
       Nothing -> Err (expectingText +++ l)
       Just bs -> tryAtto l atto bs
 
-  pElem qn pf = P (withOne go) where
+  pElem checkQN pf = P (withOne go) where
     go l t =
       -- Build a new element context
       case step t l of
         Left levelE -> Err (levelError levelE +++ l)
-        Right l'
+        Right l' ->
+          let Just qn = name l'
           -- Check that the element matches
-          | not (elemHere qn l') -> Err (wrongElement qn +++ l')
-          | otherwise ->
-              -- Run the inner parser on the element children
-              case unP pf l' (children t) of
-                (Err pe, _) -> Err pe
-                (Ok  a , leftovers)
-                  -- Fail if there are leftovers
-                  | not (null leftovers) -> Err (leftoverElements +++ l')
-                  | otherwise            -> Ok (El qn a)
+          in if not (checkQN qn)
+             then Err (wrongElement +++ l')
+             -- Run the inner parser on the element children
+             else case unP pf l' (children t) of
+               (Err pe, _) -> Err pe
+               (Ok  a , leftovers)
+                 -- Fail if there are leftovers
+                 | not (null leftovers) -> Err (leftoverElements +++ l')
+                 | otherwise            -> Ok (El qn a)
 
 errLevelError :: Level -> Either LevelError a -> Err ParseError a
 errLevelError l = either (\le -> Err $ levelError le +++ l) Ok

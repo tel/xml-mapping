@@ -29,5 +29,5 @@ import           Text.XML.Mapping.Types
 
 decode :: XML a => QName -> S.ByteString -> Either PE.ParseError a
 decode qn bs = case parse' defaultParseOptions bs of
-  Left xpe -> Left $ PE.reason (PE.malformed xpe) PE.at0
-  Right n  -> runParser xml qn (Tag n)
+  Left xpe -> Left $ PE.malformed xpe
+  Right n  -> runParser (qn #> xml) (Tag n)

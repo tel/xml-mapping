@@ -51,7 +51,7 @@ data Reason = NoAttr QName
             | Exhausted
             | ExpectingText
             | LevelError LevelError
-            | WrongElement QName
+            | WrongElement
             | LeftoverElements
             deriving ( Show, Eq )
 
@@ -86,8 +86,8 @@ expectingText = reason ExpectingText
 levelError :: LevelError -> ParseError
 levelError = reason . LevelError
 
-wrongElement :: QName -> ParseError
-wrongElement = reason . WrongElement
+wrongElement :: ParseError
+wrongElement = reason WrongElement
 
 leftoverElements :: ParseError
 leftoverElements = reason LeftoverElements
