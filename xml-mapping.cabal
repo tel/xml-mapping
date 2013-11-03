@@ -50,44 +50,48 @@ library
   ghc-options:         -Wall
   default-language:    Haskell2010
 
-  exposed-modules:     
+  exposed-modules:
+    Text.XML.Mapping
+    Text.XML.Mapping.Internal.Class
+    Text.XML.Mapping.Internal.Err
+    Text.XML.Mapping.Internal.Level
+    Text.XML.Mapping.Internal.NearSemiring
+    Text.XML.Mapping.Internal.ParseError
+    Text.XML.Mapping.Internal.Parser
     Text.XML.Mapping.NSMap
-    Text.XML.Mapping.Types
+    Text.XML.Mapping.Schema.Mixed
     Text.XML.Mapping.Schema.Namespace
     Text.XML.Mapping.Schema.SimpleType
-    Text.XML.Mapping.Internal.LevelSet
-    Text.XML.Mapping.Internal.Parser
-    Text.XML.Mapping.Internal.ParseError
+    Text.XML.Mapping.Types
+
   build-depends:       base >=4.6 && <4.7
                      , attoparsec
                      , base16-bytestring
                      , base64-bytestring
                      , bytestring
-                     , errors
                      , hashable
                      , hexpat
-                     , lattices
                      , mtl
                      , semigroups
                      , text
                      , unordered-containers
 
-test-suite tests
-  type:                exitcode-stdio-1.0
-  main-is:             Tests.hs
-  hs-source-dirs:      src, tests
-  ghc-options:         -Wall
-  default-language:    Haskell2010
+-- test-suite tests
+--   type:                exitcode-stdio-1.0
+--   main-is:             Tests.hs
+--   hs-source-dirs:      src, tests
+--   ghc-options:         -Wall
+--   default-language:    Haskell2010
 
-  other-modules:
-    Test.Text.XML.Expat.Mapping
-  build-depends:       base >=4.6 && <4.7
-                     , xml-mapping
+--   other-modules:
+--     Test.Text.XML.Expat.Mapping
+--   build-depends:       base >=4.6 && <4.7
+--                      , xml-mapping
 
-                     , QuickCheck
-                     , bytestring
-                     , errors
-                     , hexpat
-                     , tasty
-                     , tasty-hunit
-                     , tasty-quickcheck
+--                      , QuickCheck
+--                      , bytestring
+--                      , errors
+--                      , hexpat
+--                      , tasty
+--                      , tasty-hunit
+--                      , tasty-quickcheck
