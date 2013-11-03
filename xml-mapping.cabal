@@ -1,4 +1,4 @@
-name:                hexpat-mapping
+name:                xml-mapping
 version:             0.0.11
 
 synopsis:            Aeson for XML. Easy recursive mapping between Haskell and XML.
@@ -16,9 +16,9 @@ description:
   retract) these types are more complex to create and use due to their
   dual nature.
   .
-  Instead, @hexpat-mapping@ follows the method popularized by the JSON
+  Instead, @xml-mapping@ follows the method popularized by the JSON
   parsing library @aeson@ and defines the parser and printers
-  separately. This allows for @hexpat-mapping@ to have much nicer
+  separately. This allows for @xml-mapping@ to have much nicer
   parsing technology.
   .
   In fact, as of today, there aren't even any printing/serialization
@@ -26,16 +26,16 @@ description:
   .
   /How does this related to XML Schema?/
   .
-  @hexpat-mapping@ was written with code on one screen and XSD
+  @xml-mapping@ was written with code on one screen and XSD
   documentation on the other. That said, there's a long history of
   very complex object oriented semantics behind XML technologies. To
   the degree that those technologies are useful and translatable to
-  user friendly Haskell, @hexpat-mapping@ endeavors to enable them,
-  but it will likely never be a priority for @hexpat-mapping@ to have
-  semantic parity with XSD. Instead, @hexpat-mapping@ aims to enable
+  user friendly Haskell, @xml-mapping@ endeavors to enable them,
+  but it will likely never be a priority for @xml-mapping@ to have
+  semantic parity with XSD. Instead, @xml-mapping@ aims to enable
   practical use of XML serialization as seen in the wild.
 
-homepage:            http://github.com/tel/hexpat-mapping
+homepage:            http://github.com/tel/xml-mapping
 license:             MIT
 license-file:        LICENSE
 author:              Joseph Abrahamson
@@ -64,11 +64,9 @@ library
                      , base64-bytestring
                      , bytestring
                      , errors
-                     , free
                      , hashable
                      , hexpat
                      , lattices
-                     , lens
                      , mtl
                      , semigroups
                      , text
@@ -84,7 +82,7 @@ test-suite tests
   other-modules:
     Test.Text.XML.Expat.Mapping
   build-depends:       base >=4.6 && <4.7
-                     , hexpat-mapping
+                     , xml-mapping
 
                      , QuickCheck
                      , bytestring
