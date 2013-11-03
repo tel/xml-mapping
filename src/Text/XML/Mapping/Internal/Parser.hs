@@ -51,20 +51,6 @@ instance Alternative Parser where
       Right x  -> Right x
     Right x -> Right x
 
-  many p = P go where
-    go _ [] = Right ([], [])
-    go ls xs = do
-      (a, leftovers) <- unP p ls xs
-      (as, leftovers') <- go ls leftovers
-      return (a:as, leftovers')
-
-  some p = P go where
-    go ls [] = Left $ PE.reasonAt PE.exhausted ls
-    go ls xs = do
-      (a, leftovers) <- unP p ls xs
-      (as, leftovers') <- go ls leftovers
-      return (a:as, leftovers')
-
 instance Semigroup (Parser a) where
   (<>) = (<|>)
 
