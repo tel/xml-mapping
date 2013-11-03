@@ -9,19 +9,19 @@
 
 module Text.XML.Mapping.Internal.ParseError where
 
-import           Prelude                            hiding (or, seq)
-import qualified Text.XML.Expat.Tree                as Ex
-import           Text.XML.Mapping.Internal.LevelSet
+import           Prelude                           hiding (or, seq)
+import qualified Text.XML.Expat.Tree               as Ex
+import           Text.XML.Mapping.Internal.Level
 import           Text.XML.Mapping.Schema.Namespace
 
 -- | Abstract for now.
 data ParseError = Seq ParseError ParseError
                 | Or  ParseError ParseError
                 | Speculated ParseError
-                | ParseError { peLoc    :: Maybe LevelSet
+                | ParseError { peLoc    :: Maybe Level
                              , peReason :: [Reason]
                              }
-                deriving ( Show, Eq )
+                deriving ( Eq )
 
 data Reason = NoAttr QName
             | Empty
@@ -35,7 +35,7 @@ data Reason = NoAttr QName
             deriving ( Show, Eq )
 
 -- | Primary constructor
-at :: LevelSet -> ParseError
+at :: Level -> ParseError
 at ls = ParseError (Just ls) []
 
 at0 :: ParseError
@@ -48,7 +48,7 @@ reason r (Seq pe1 pe2) = Seq (reason r pe1) (reason r pe2)
 reason r (Or  pe1 pe2) = Or  (reason r pe1) (reason r pe2)
 reason r (Speculated pe) = Speculated (reason r pe)
 
-reasonAt :: Reason -> LevelSet -> ParseError
+reasonAt :: Reason -> Level -> ParseError
 reasonAt r ls = reason r (at ls)
 
 seq :: ParseError -> ParseError -> ParseError

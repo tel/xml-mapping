@@ -19,17 +19,15 @@ import           Control.Applicative
 import           Control.Monad
 import qualified Data.Attoparsec                      as A
 import qualified Data.ByteString                      as S
-import qualified Data.HashMap.Strict                  as Map
 import           Data.Semigroup
 import           Text.XML.Mapping.Internal.Class
-import           Text.XML.Mapping.Internal.LevelSet
+import           Text.XML.Mapping.Internal.Level
 import qualified Text.XML.Mapping.Internal.ParseError as PE
-import           Text.XML.Mapping.Schema.Namespace
 import           Text.XML.Mapping.Types
 
 newtype Parser a = P {
 
-  unP :: LevelSet -> [Tag] -> Either PE.ParseError (a, [Tag])
+  unP :: Level -> [Tag] -> Either PE.ParseError (a, [Tag])
 
   } deriving Functor
 
@@ -74,7 +72,7 @@ instance Monoid (Parser a) where
   mempty = empty
   mappend = (<|>)
 
-tryAtto :: LevelSet -> [Tag] -> A.Parser a -> S.ByteString -> Either PE.ParseError (a, [Tag])
+tryAtto :: Level -> [Tag] -> A.Parser a -> S.ByteString -> Either PE.ParseError (a, [Tag])
 tryAtto ls ts atto bs = case A.parseOnly atto bs of
   Left attoReason ->
     Left $ PE.reasonAt (PE.simpleFail attoReason) ls
@@ -83,7 +81,7 @@ tryAtto ls ts atto bs = case A.parseOnly atto bs of
 
 instance X Parser where
   pAttr atto qn = P $ \ls ts ->
-    case Map.lookup qn (attributes . levelState $ ls) of
+    case getAttr ls qn of
       Nothing -> Left $ PE.reasonAt (PE.noAttr qn) ls
       Just bs -> tryAtto ls ts atto bs
 
@@ -100,7 +98,7 @@ instance X Parser where
       | otherwise   = do
 
         -- Build a new element context
-        ls' <- eitLevelError ls $ t !<< ls
+        ls' <- eitLevelError ls (step t ls)
 
         -- Check that the element matches
         unless (elemHere qn ls')
@@ -116,15 +114,11 @@ instance X Parser where
         -- And we're done
         return (El qn res, ts)
 
-eitLevelError :: LevelSet -> Either LevelError b -> Either PE.ParseError b
+eitLevelError :: Level -> Either LevelError b -> Either PE.ParseError b
 eitLevelError ls = either (\le -> Left $ PE.reasonAt (PE.levelError le) ls) Right
 
 runParser :: Parser a -> Tag -> Either PE.ParseError a
 runParser p t = do
-  lstate <- case initialize t of
-    Left le -> Left $ PE.reason (PE.levelError le) PE.at0
-    Right x -> Right x
-  let ls = Root lstate
-  (res, leftovers) <- unP p ls [t]
-  unless (null leftovers) $ Left $ PE.reasonAt PE.leftoverElements ls
+  (res, leftovers) <- unP p level0 [t]
+  unless (null leftovers) $ Left $ PE.reasonAt PE.leftoverElements level0
   return res

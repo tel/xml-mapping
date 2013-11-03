@@ -24,7 +24,10 @@ module Text.XML.Mapping.Internal.Level (
   -- * Levels
 
   Level, level0, nsContext, name, attributes, nextStep, path,
-  resolve, step, elemHere,
+  resolve, step, elemHere, getAttr,
+
+  -- ** Errors
+  LevelError (..),
 
   -- * Supporting types
 
