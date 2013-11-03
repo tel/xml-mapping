@@ -27,6 +27,9 @@ err :: (e -> c) -> (a -> c) -> Err e a -> c
 err f _ (Err e) = f e
 err _ s (Ok  a) = s a
 
+errEither :: Err e a -> Either e a
+errEither = err Left Right
+
 instance NearSemiring e => Applicative (Err e) where
   pure = Ok
   Err e <*> Err e' = Err (e ~*~ e')

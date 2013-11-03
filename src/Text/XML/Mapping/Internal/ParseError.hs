@@ -55,6 +55,10 @@ data Reason = NoAttr QName
             | LeftoverElements
             deriving ( Show, Eq )
 
+-- | ParseError at a particular location
+(+++) :: ParseError -> Level -> ParseError
+(+++) = At
+
 -- | Append a new reason for failure
 reason :: Reason -> ParseError
 reason = Reason

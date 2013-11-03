@@ -71,53 +71,52 @@ instance Monoid (Parser a) where
   mempty = empty
   mappend = (<|>)
 
--- tryAtto :: Level -> [Tag] -> A.Parser a -> S.ByteString -> Either PE.ParseError (a, [Tag])
--- tryAtto ls ts atto bs = case A.parseOnly atto bs of
---   Left attoReason ->
---     Left $ PE.reasonAt (PE.simpleFail attoReason) ls
---   Right simple ->
---     Right (simple, ts)
+tryAtto :: Level -> A.Parser a -> S.ByteString -> Err ParseError a
+tryAtto l atto bs = case A.parseOnly atto bs of
+  Left  attoReason -> Err $ simpleFail attoReason +++ l
+  Right simple     -> Ok simple
 
--- instance X Parser where
---   pAttr atto qn = P $ \ls ts ->
---     case getAttr ls qn of
---       Nothing -> Left $ PE.reasonAt (PE.noAttr qn) ls
---       Just bs -> tryAtto ls ts atto bs
+withOne :: (Level -> Tag -> Err ParseError a) -> Level -> [Tag] -> (Err ParseError a, [Tag])
+withOne _  l []     = (Err $ exhausted +++ l, [])
+withOne go l (t:ts)
+  | ignorable t = withOne go l ts
+  | otherwise   =
+    case go l t of
+      Err pe -> (Err pe, t:ts)
+      Ok  a  -> (Ok  a ,   ts)
 
---   pText atto = P go where
---     go ls []     = Left $ PE.reasonAt PE.exhausted ls
---     go ls (t:ts) = case rawText t of
---       Nothing -> Left $ PE.reasonAt PE.expectingText ls
---       Just bs -> tryAtto ls ts atto bs
+instance X Parser where
+  pAttr atto qn = P $ \l ts -> (go l, ts) where
+    go l = case getAttr l qn of
+      Nothing -> Err $ noAttr qn +++ l
+      Just bs -> tryAtto l atto bs
 
---   pElem qn pf = P go where
---     go ls []     = Left $ PE.reasonAt PE.exhausted ls
---     go ls (t:ts)
---       | ignorable t = go ls ts
---       | otherwise   = do
+  pText atto = P (withOne go) where
+    go l t = case rawText t of
+      Nothing -> Err (expectingText +++ l)
+      Just bs -> tryAtto l atto bs
 
---         -- Build a new element context
---         ls' <- eitLevelError ls (step t ls)
+  pElem qn pf = P (withOne go) where
+    go l t =
+      -- Build a new element context
+      case step t l of
+        Left levelE -> Err (levelError levelE +++ l)
+        Right l'
+          -- Check that the element matches
+          | not (elemHere qn l') -> Err (wrongElement qn +++ l')
+          | otherwise ->
+              -- Run the inner parser on the element children
+              case unP pf l' (children t) of
+                (Err pe, _) -> Err pe
+                (Ok  a , leftovers)
+                  -- Fail if there are leftovers
+                  | not (null leftovers) -> Err (leftoverElements +++ l')
+                  | otherwise            -> Ok (El qn a)
 
---         -- Check that the element matches
---         unless (elemHere qn ls')
---           $ Left $ PE.reasonAt (PE.wrongElement qn) ls'
+errLevelError :: Level -> Either LevelError a -> Err ParseError a
+errLevelError l = either (\le -> Err $ levelError le +++ l) Ok
 
---         -- Run the inner parser on the element children
---         (res, leftovers) <- unP pf ls' (children t)
-
---         -- Ensure that all the children were consumed
---         unless (null leftovers)
---           $ Left $ PE.reasonAt PE.leftoverElements ls'
-
---         -- And we're done
---         return (El qn res, ts)
-
--- eitLevelError :: Level -> Either LevelError b -> Either PE.ParseError b
--- eitLevelError ls = either (\le -> Left $ PE.reasonAt (PE.levelError le) ls) Right
-
--- runParser :: Parser a -> Tag -> Either PE.ParseError a
--- runParser p t = do
---   (res, leftovers) <- unP p level0 [t]
---   unless (null leftovers) $ Left $ PE.reasonAt PE.leftoverElements level0
---   return res
+runParser :: Parser a -> Tag -> Either ParseError a
+runParser p t =
+  let (res, _leftovers) = unP p level0 [t]
+  in errEither res
